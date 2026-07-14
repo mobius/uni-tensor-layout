@@ -1,4 +1,4 @@
-# uni-tensor-layout (cpu-cute-tensor)
+# uni-tensor-layout (uni-cute-tensor)
 
 CuTe-style **tensor layout algebra** for the heterogeneous machine described by
 [uni-framework](https://github.com/mobius/uni-framework):
@@ -37,7 +37,7 @@ uv pip install -e ".[dev]"
 # hardware probe (no serial numbers printed)
 bash scripts/check_hw.sh
 # or:
-python -c "from cpu_cute_tensor.cli import check_hw_main; check_hw_main()"
+python -c "from uni_cute_tensor.cli import check_hw_main; check_hw_main()"
 
 # demos
 python examples/demo_atoms.py
@@ -67,7 +67,7 @@ checkout for richer device discovery (defaults to `~/Work/uni` if present).
 ## Layout of the repo
 
 ```
-src/cpu_cute_tensor/
+src/uni_cute_tensor/
   atoms/          # HOST_AVX512, PHI_KNC, VE_NLC atoms
   partition/      # multi-device PlacementPlan
   bridge/         # uni-framework adapter

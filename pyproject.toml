@@ -3,7 +3,7 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cpu-cute-tensor"
+name = "uni-cute-tensor"
 version = "0.1.1"
 description = "CuTe layout algebra for Host AVX-512 + Xeon Phi + NEC VE heterogeneous systems"
 readme = "README.md"
@@ -22,8 +22,8 @@ test = ["pytest>=7.0"]
 dev = ["pytest>=7.0", "matplotlib>=3.5", "ruff>=0.4"]
 
 [project.scripts]
-cct-check-hw = "cpu_cute_tensor.cli:check_hw_main"
-cct-demo-partition = "cpu_cute_tensor.cli:demo_partition_main"
+uct-check-hw = "uni_cute_tensor.cli:check_hw_main"
+uct-demo-partition = "uni_cute_tensor.cli:demo_partition_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

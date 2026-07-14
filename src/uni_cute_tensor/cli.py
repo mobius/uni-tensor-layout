@@ -5,16 +5,16 @@ from __future__ import annotations
 import json
 import sys
 
-from cpu_cute_tensor.bridge.uni_adapter import discover_devices, plan_to_task_specs, ve_device_names
-from cpu_cute_tensor.hw import probe
-from cpu_cute_tensor.partition.multi_device import partition_to_devices
-from cpu_cute_tensor.partition.pcie_cost import estimate_gemm_transfer_bytes, estimate_h2d_seconds
+from uni_cute_tensor.bridge.uni_adapter import discover_devices, plan_to_task_specs, ve_device_names
+from uni_cute_tensor.hw import probe
+from uni_cute_tensor.partition.multi_device import partition_to_devices
+from uni_cute_tensor.partition.pcie_cost import estimate_gemm_transfer_bytes, estimate_h2d_seconds
 
 
 def check_hw_main() -> None:
     report = probe()
     devices = discover_devices()
-    print("=== cpu-cute-tensor hardware probe ===")
+    print("=== uni-cute-tensor hardware probe ===")
     print(f"host: {report.hostname} ({report.machine})")
     print(f"cpu:  {report.cpu_model}")
     print(f"flags:{' '.join(report.cpu_flags_key) or '(none key)'}")

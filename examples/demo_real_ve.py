@@ -11,8 +11,8 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 
-from cpu_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
-from cpu_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+from uni_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
+from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
 
 
 def main() -> int:

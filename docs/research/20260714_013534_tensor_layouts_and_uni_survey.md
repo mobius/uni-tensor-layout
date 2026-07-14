@@ -12,7 +12,7 @@
 
 将 **CuTe 布局代数**（纯 Python 可学、可推演、可可视化）引入本机 **Phi + VE + Host** 异构栈，形成「逻辑坐标 → 内存偏移 → 设备分片/向量化」统一描述，并与 uni 的设备发现、NUMA、功率、DAG 调度衔接。
 
-工作区命名 `cpu-cute-tensor` 暗示主路径是 **CPU/加速卡异构上的 CuTe 式张量布局**，而非 NVIDIA-only 内核。
+工作区命名 `uni-cute-tensor` 暗示主路径是 **CPU/加速卡异构上的 CuTe 式张量布局**，而非 NVIDIA-only 内核。
 
 ---
 

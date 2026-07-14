@@ -13,7 +13,7 @@
 4. 写入:  
    - `docs/research/20260714_013534_hw_env_feasibility.md`  
    - `docs/research/20260714_013534_tensor_layouts_and_uni_survey.md`  
-   - `docs/architecture/20260714_013534_cpu_cute_tensor_architecture.md`  
+   - `docs/architecture/20260714_013534_uni_cute_tensor_architecture.md`  
    - `docs/plan/20260714_013534_implementation_plan.md`  
    - `docs/glossary.md`  
    - 本文件  

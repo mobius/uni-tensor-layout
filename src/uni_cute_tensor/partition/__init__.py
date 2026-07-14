@@ -1,12 +1,12 @@
 """Multi-device layout partitioners."""
 
-from cpu_cute_tensor.partition.multi_device import (
+from uni_cute_tensor.partition.multi_device import (
     PlacementPlan,
     Shard,
     partition_matrix_rows,
     partition_to_devices,
 )
-from cpu_cute_tensor.partition.pcie_cost import estimate_h2d_seconds
+from uni_cute_tensor.partition.pcie_cost import estimate_h2d_seconds
 
 __all__ = [
     "PlacementPlan",

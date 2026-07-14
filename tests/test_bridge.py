@@ -1,12 +1,12 @@
 """Bridge / discovery tests (hardware optional)."""
 
-from cpu_cute_tensor.bridge.uni_adapter import (
+from uni_cute_tensor.bridge.uni_adapter import (
     discover_devices,
     plan_to_task_specs,
     resolve_uni_root,
     ve_device_names,
 )
-from cpu_cute_tensor.partition.multi_device import partition_matrix_rows
+from uni_cute_tensor.partition.multi_device import partition_matrix_rows
 
 
 def test_discover_includes_host():

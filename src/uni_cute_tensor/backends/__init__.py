@@ -1,9 +1,9 @@
 """Backends: host reference, real VE NLC DGEMM, Phi smoke."""
 
-from cpu_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
-from cpu_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
-from cpu_cute_tensor.backends.phi_smoke import find_phi_peak_binary, run_phi_peak_smoke
-from cpu_cute_tensor.backends.ve_dgemm import (
+from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
+from uni_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
+from uni_cute_tensor.backends.phi_smoke import find_phi_peak_binary, run_phi_peak_smoke
+from uni_cute_tensor.backends.ve_dgemm import (
     compile_ve_dgemm,
     multi_ve_layout_dgemm,
     run_ve_dgemm_shard,

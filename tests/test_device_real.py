@@ -5,14 +5,14 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from cpu_cute_tensor.backends.host_dgemm import host_blocked_dgemm
-from cpu_cute_tensor.backends.phi_smoke import phi_device_present, run_phi_peak_smoke
-from cpu_cute_tensor.backends.ve_dgemm import (
+from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm
+from uni_cute_tensor.backends.phi_smoke import phi_device_present, run_phi_peak_smoke
+from uni_cute_tensor.backends.ve_dgemm import (
     multi_ve_layout_dgemm,
     run_ve_dgemm_shard,
     ve_toolchain_available,
 )
-from cpu_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
 
 
 pytestmark = pytest.mark.device

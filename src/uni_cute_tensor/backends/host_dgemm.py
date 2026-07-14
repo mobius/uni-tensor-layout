@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from cpu_cute_tensor.atoms.host_avx512 import HOST_AVX512_8x8x8_F64
+from uni_cute_tensor.atoms.host_avx512 import HOST_AVX512_8x8x8_F64
 
 
 @dataclass

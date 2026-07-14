@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Sequence
 
-from cpu_cute_tensor.partition.multi_device import PlacementPlan
+from uni_cute_tensor.partition.multi_device import PlacementPlan
 
 
 @dataclass(frozen=True)

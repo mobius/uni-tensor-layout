@@ -1,6 +1,6 @@
 """Bridge to uni-framework scheduler (optional path dependency)."""
 
-from cpu_cute_tensor.bridge.uni_adapter import (
+from uni_cute_tensor.bridge.uni_adapter import (
     DeviceSummary,
     discover_devices,
     plan_to_task_specs,

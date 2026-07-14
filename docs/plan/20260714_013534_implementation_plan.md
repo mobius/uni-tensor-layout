@@ -1,9 +1,9 @@
-# cpu-cute-tensor 实施方案
+# uni-cute-tensor 实施方案
 
 > 文档时间: 2026-07-14 01:35:34  
 > 状态: **待用户确认后执行 Phase 1**  
 > 前置门禁: `docs/research/20260714_013534_hw_env_feasibility.md` → **PASS**  
-> 架构: `docs/architecture/20260714_013534_cpu_cute_tensor_architecture.md`
+> 架构: `docs/architecture/20260714_013534_uni_cute_tensor_architecture.md`
 
 ---
 
@@ -68,7 +68,7 @@ ncc --version
 ### 3.2 环境（uv 优先）
 
 ```bash
-cd /mnt/storage/hdd1/cpu-cute-tensor
+cd /mnt/storage/hdd1/uni-cute-tensor
 uv venv --python 3.13 env/.venv
 source env/.venv/bin/activate
 uv pip install "tensor-layouts[viz,test]" pytest ruff
@@ -85,8 +85,8 @@ pytest --pyargs tensor_layouts  # 或 clone 后测；以包实际导出为准
 
 ### 3.3 仓库骨架
 
-- `pyproject.toml`（包名 `cpu-cute-tensor`，依赖 `tensor-layouts`）  
-- `src/cpu_cute_tensor/` 空包可导入  
+- `pyproject.toml`（包名 `uni-cute-tensor`，依赖 `tensor-layouts`）  
+- `src/uni_cute_tensor/` 空包可导入  
 - `scripts/check_hw.sh`  
 - `scripts/audit_sensitive.sh`  
 - `.gitignore`  

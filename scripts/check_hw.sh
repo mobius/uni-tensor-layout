@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Hardware gate for cpu-cute-tensor. Prints capability summary; no secrets.
+# Hardware gate for uni-cute-tensor. Prints capability summary; no secrets.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export PYTHONPATH="${ROOT}/src${PYTHONPATH:+:$PYTHONPATH}"
@@ -22,4 +22,4 @@ command -v nvidia-smi >/dev/null && nvidia-smi -L || echo "nvidia-smi: absent (e
 
 echo
 echo "== python probe =="
-"$PY" -c "from cpu_cute_tensor.cli import check_hw_main; check_hw_main()"
+"$PY" -c "from uni_cute_tensor.cli import check_hw_main; check_hw_main()"

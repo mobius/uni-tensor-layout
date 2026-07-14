@@ -2,7 +2,7 @@
 
 from tensor_layouts import size
 
-from cpu_cute_tensor.atoms import (
+from uni_cute_tensor.atoms import (
     HOST_AVX512_8x8x8_F64,
     PHI_KNC_8x8x8_F64,
     VE_NLC_DGEMM_64x64x64_F64,

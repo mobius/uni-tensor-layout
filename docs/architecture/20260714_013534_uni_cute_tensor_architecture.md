@@ -1,4 +1,4 @@
-# cpu-cute-tensor 架构设计
+# uni-cute-tensor 架构设计
 
 > 文档时间: 2026-07-14 01:35:34  
 > 状态: v0 草案（实施前）  
@@ -59,7 +59,7 @@
 
 | 层 | 职责 | 技术 |
 |----|------|------|
-| Layout Core | 代数正确性、atom 定义、可视化 | `tensor-layouts` + 本仓 `src/cpu_cute_tensor/atoms/` |
+| Layout Core | 代数正确性、atom 定义、可视化 | `tensor-layouts` + 本仓 `src/uni_cute_tensor/atoms/` |
 | Device Placement | 按 shape 做多设备 `logical_divide`、PCIe 成本估计 | 纯 Python |
 | Scheduler Bridge | 将 layout plan 变为任务图 | 引用或适配 uni `task_graph` |
 | Backend | 编译/执行真实内核 | gcc / ICC-mic / ncc + NLC |
@@ -117,9 +117,9 @@ Atoms **不声称** 与 NVIDIA MMA 二进制兼容；仅复用 CuTe 的 thread-v
 **松耦合路径引用**（避免强绑 monorepo）:
 
 ```text
-cpu-cute-tensor/
+uni-cute-tensor/
   third_party/ 或 env 配置 UNI_ROOT=/home/joey/Work/uni
-  src/cpu_cute_tensor/bridge/uni_adapter.py
+  src/uni_cute_tensor/bridge/uni_adapter.py
 ```
 
 适配器职责:
@@ -146,7 +146,7 @@ cpu-cute-tensor/
 ## 5. 仓库结构（目标态）
 
 ```text
-cpu-cute-tensor/
+uni-cute-tensor/
 ├── README.md
 ├── pyproject.toml              # uv 管理，python>=3.10
 ├── docs/
@@ -156,7 +156,7 @@ cpu-cute-tensor/
 │   ├── architecture/           # 时间戳架构
 │   └── impl/                   # 时间戳实现记录
 ├── env/                        # uv venv 位置（gitignore）
-├── src/cpu_cute_tensor/
+├── src/uni_cute_tensor/
 │   ├── __init__.py
 │   ├── atoms/
 │   │   ├── host_avx512.py

@@ -12,10 +12,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 
-from cpu_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
-from cpu_cute_tensor.bridge.uni_adapter import discover_devices, plan_to_task_specs, ve_device_names
-from cpu_cute_tensor.partition.multi_device import partition_to_devices
-from cpu_cute_tensor.partition.pcie_cost import estimate_gemm_transfer_bytes, estimate_h2d_seconds
+from uni_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
+from uni_cute_tensor.bridge.uni_adapter import discover_devices, plan_to_task_specs, ve_device_names
+from uni_cute_tensor.partition.multi_device import partition_to_devices
+from uni_cute_tensor.partition.pcie_cost import estimate_gemm_transfer_bytes, estimate_h2d_seconds
 
 
 def main() -> int:

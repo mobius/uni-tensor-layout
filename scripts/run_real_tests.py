@@ -20,10 +20,10 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 
-from cpu_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
-from cpu_cute_tensor.backends.phi_smoke import run_phi_peak_smoke
-from cpu_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
-from cpu_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
+from uni_cute_tensor.backends.phi_smoke import run_phi_peak_smoke
+from uni_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
+from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
 
 
 def main() -> int:

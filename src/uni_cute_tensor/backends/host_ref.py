@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from cpu_cute_tensor.partition.multi_device import PlacementPlan
+from uni_cute_tensor.partition.multi_device import PlacementPlan
 
 
 def host_dgemm_reference(a: np.ndarray, b: np.ndarray) -> np.ndarray:

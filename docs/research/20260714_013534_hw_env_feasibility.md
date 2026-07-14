@@ -2,7 +2,7 @@
 
 > 文档时间: 2026-07-14 01:35:34 (local) / 2026-07-14T05:35:34Z  
 > 主机: g4 (ASUS ESC4000 G4 类机, Rocky Linux 8.10 / el8)  
-> 工作区: `/mnt/storage/hdd1/cpu-cute-tensor`  
+> 工作区: `/mnt/storage/hdd1/uni-cute-tensor`  
 > 目标: 在实施 tensor-layouts × uni-framework 方案前，判定本机是否可支撑
 
 ---

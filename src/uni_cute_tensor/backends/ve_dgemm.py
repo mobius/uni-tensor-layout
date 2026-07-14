@@ -16,7 +16,7 @@ from typing import Optional, Sequence
 
 import numpy as np
 
-from cpu_cute_tensor.partition.multi_device import PlacementPlan, partition_to_devices
+from uni_cute_tensor.partition.multi_device import PlacementPlan, partition_to_devices
 
 NLC_ROOT = Path(os.environ.get("NLC_ROOT", "/opt/nec/ve/nlc/3.1.0"))
 VE_EXEC = Path(os.environ.get("VE_EXEC", "/opt/nec/ve/bin/ve_exec"))
