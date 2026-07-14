@@ -185,11 +185,12 @@ def compile_phi_dgemm(
             compiler = "icc-mmic"
 
     if compiler == "icc-mmic":
+        # OpenMP + IMCI path; -restrict matches intel_phi peak_dgemm flags
         script = r"""
 set -e
 source /opt/intel/bin/compilervars.sh intel64
 export INTEL_LICENSE_FILE=/opt/intel/licenses/parallel_studio.lic
-icc -std=c99 -mmic -O3 -pthread -o /tmp/dgemm_rect.mic /tmp/dgemm_rect.c
+icc -std=c99 -mmic -O3 -openmp -restrict -o /tmp/dgemm_rect.mic /tmp/dgemm_rect.c
 """
     else:
         script = r"""
@@ -279,6 +280,7 @@ def run_phi_dgemm(
     remote_bin = "/tmp/uni_cute_dgemm_rect.mic"
     remote_in = "/tmp/uni_cute_phi_in.bin"
     remote_out = "/tmp/uni_cute_phi_out.bin"
+    remote_libdir = "/tmp/uni_cute_mic_libs"
 
     scp = _scp_base()
     ssh = _ssh_base()
@@ -301,8 +303,30 @@ def run_phi_dgemm(
     if r2.returncode != 0:
         raise RuntimeError(f"scp input failed: {r2.stderr}")
 
+    # OpenMP runtime for ICC -openmp MIC binaries (ssh path has no SINK_LD_*)
+    mic_libs = Path.home() / "Work" / "intel_phi" / "icc_mic_libs"
+    iomp = mic_libs / "libiomp5.so"
+    if iomp.is_file():
+        subprocess.run(
+            ssh + [MIC_HOST, f"mkdir -p {remote_libdir}"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        subprocess.run(
+            scp + [str(iomp), f"{MIC_HOST}:{remote_libdir}/libiomp5.so"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+
+    # OMP_NUM_THREADS for ICC OpenMP build; PHI_DGEMM_THREADS also read by kernel
     remote_cmd = (
-        f"PHI_DGEMM_THREADS={int(threads)} {remote_bin} {remote_in} {remote_out}"
+        f"export LD_LIBRARY_PATH={remote_libdir}:$LD_LIBRARY_PATH; "
+        f"export OMP_NUM_THREADS={int(threads)}; "
+        f"export PHI_DGEMM_THREADS={int(threads)}; "
+        f"export KMP_AFFINITY=balanced,granularity=fine; "
+        f"{remote_bin} {remote_in} {remote_out}"
     )
     t0 = time.perf_counter()
     r3 = subprocess.run(
