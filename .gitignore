@@ -1,0 +1,54 @@
+# Local envs (uv / conda) — do not commit
+.venv/
+env/.venv/
+env/venv/
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+*~
+.DS_Store
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_rsa*
+*.p12
+credentials*
+secrets*
+
+# Logs and large artifacts
+*.log
+acceptance.log
+*.o
+*.so
+*.a
+*.mic
+*.out
+/tmp_build/
+artifacts/
+
+# Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Optional local UNI path override files
+.uni_root
+config.local.toml

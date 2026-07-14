@@ -1,0 +1,43 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cpu-cute-tensor"
+version = "0.1.0"
+description = "CuTe layout algebra for Host AVX-512 + Xeon Phi + NEC VE heterogeneous systems"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [{ name = "mobius" }]
+keywords = ["cute", "layout", "tensor", "xeon-phi", "nec-ve", "avx512", "heterogeneous"]
+dependencies = [
+    "tensor-layouts>=0.3.2",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+viz = ["matplotlib>=3.5"]
+test = ["pytest>=7.0"]
+dev = ["pytest>=7.0", "matplotlib>=3.5", "ruff>=0.4"]
+
+[project.scripts]
+cct-check-hw = "cpu_cute_tensor.cli:check_hw_main"
+cct-demo-partition = "cpu_cute_tensor.cli:demo_partition_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "device: tests that need Phi/VE hardware",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W"]
+ignore = ["E501"]
