@@ -6,19 +6,25 @@
 
 ## License 结论
 
+> **更正（2026-07-14 文档复核）**：用法与 `intel_phi` / `uni` 历史文档一致  
+> （`parallel_studio.lic` + `source compilervars` + `icc -mmic`）。  
+> 详细对照见 `docs/research/20260714_080104_intel_license_doc_review.md`。
+
 | 项 | 结果 |
 |----|------|
 | 用户 license 路径 | `~/parallel_studio.lic`（**不入库**） |
-| 文件可读 | 是（CRLF 已在注入容器时规范化） |
+| 文档用法 | 与 intel_phi/uni **一致**（非用错路径） |
+| 安装 silent.cfg | `ACTIVATION_TYPE=trial_lic` + license 文件路径 |
+| 文件可读 / 已被 ICC 搜索到 | 是 |
 | ICC 16 请求 feature | **Comp-CL** |
-| license PACKAGE 组件 | 含 **CCompL / CCompW** 等，**不含 Comp-CL** |
+| `.lic` 内 feature（chklic） | 有 **CCompL** 等，**无 Comp-CL** |
 | FlexLM | `-5,357` *No such feature exists* for Comp-CL |
-| ICC `-mmic` 编译 | **不可用**（feature 名代际不匹配） |
+| ICC `-mmic` 当前 | **不可用**（试用 Trusted Storage 失效后，文件无法提供 Comp-CL） |
 
 处理策略:
 
-1. 自动探测 ICC license（`try_icc_license()`）  
-2. 失败则回退 **k1om-mpss-linux-gcc**（MPSS 3.8.6 sysroot）交叉编译 K1OM 二进制  
+1. 自动探测 ICC（`try_icc_license()`）— 按文档路径注入 license  
+2. 失败则回退 **k1om-mpss-linux-gcc**（与 intel_phi 工具链矩阵中「日常 SDK GCC」一致）  
 3. 运行路径: `scp` → `ssh mic0` → `scp` 回传（Phi 进程看不见 Host 路径）
 
 ## 新增

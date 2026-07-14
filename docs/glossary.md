@@ -211,7 +211,9 @@ Host 将输入矩阵写成 `.bin`，VE 进程读文件、写输出，再由 Host
 
 ### Comp-CL / CCompL
 
-Intel FlexLM 特性名。ICC 16.0（PSXE 2016）检出 **Comp-CL**；较新的 Parallel Studio 许可组件列表常用 **CCompL**。若 license 仅有 CCompL 而无 Comp-CL，则出现 *No such feature exists (-5,357)*，本项目回退 **k1om-gcc** 交叉编译。
+Intel FlexLM 特性名。ICC 16.0（PSXE 2016）检出 **Comp-CL**；当前 `parallel_studio.lic` 经 chklic 列出的是 **CCompL** 等（无 Comp-CL）。  
+历史 intel_phi 安装 `silent.cfg` 使用 **`ACTIVATION_TYPE=trial_lic`**：试用期内 Trusted Storage 可满足 Comp-CL；试用失效后仅靠该 `.lic` 文件会 `-5,357`。  
+**文档中的 license 放置/compilervars 用法本身是对的**；阻塞在 feature/试用状态。详见 `docs/research/20260714_080104_intel_license_doc_review.md`。
 
 ### k1om / K1OM
 
