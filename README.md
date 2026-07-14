@@ -16,7 +16,15 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-v0.1.0 — layout atoms, multi-device partitioner, uni device bridge, host-sim sharded GEMM.
+v0.1.1 — layout atoms, multi-device partitioner, **real multi-VE NLC DGEMM**, Phi peak smoke, host tile GEMM.
+
+### Real hardware (this machine class)
+
+| Test | Result (example) |
+|------|------------------|
+| Multi-VE layout DGEMM 1536×1024×1024 | max_abs_err ~4e-13; ~1.4 TFLOPS/card kernel |
+| Phi peak FP64 | ~570 GFLOPS via prebuilt `.mic` |
+| Host blocked tile=8 | correct vs numpy |
 
 ## Quick start (uv, isolated env)
 
@@ -34,9 +42,13 @@ python -c "from cpu_cute_tensor.cli import check_hw_main; check_hw_main()"
 # demos
 python examples/demo_atoms.py
 python examples/demo_partition.py
+python examples/demo_real_ve.py
 
-# tests
+# unit + device tests
 pytest -q
+
+# full real suite (Host + 3×VE + Phi)
+python scripts/run_real_tests.py --m 512 --k 512 --n 512
 ```
 
 Optional: set `UNI_ROOT` to a local [uni-framework](https://github.com/mobius/uni-framework)

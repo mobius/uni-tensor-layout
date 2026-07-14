@@ -44,7 +44,9 @@ acceptance.log
 *.mic
 *.out
 /tmp_build/
+/build/
 artifacts/
+*.bin
 
 # Notebooks checkpoints
 .ipynb_checkpoints/

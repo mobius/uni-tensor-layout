@@ -1,0 +1,68 @@
+"""Hardware-backed tests. Skipped automatically when devices/toolchain missing."""
+
+from __future__ import annotations
+
+import numpy as np
+import pytest
+
+from cpu_cute_tensor.backends.host_dgemm import host_blocked_dgemm
+from cpu_cute_tensor.backends.phi_smoke import phi_device_present, run_phi_peak_smoke
+from cpu_cute_tensor.backends.ve_dgemm import (
+    multi_ve_layout_dgemm,
+    run_ve_dgemm_shard,
+    ve_toolchain_available,
+)
+from cpu_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+
+
+pytestmark = pytest.mark.device
+
+
+def test_host_blocked_atom_tile():
+    rng = np.random.default_rng(1)
+    a = rng.standard_normal((64, 48))
+    b = rng.standard_normal((48, 40))
+    _, res = host_blocked_dgemm(a, b)
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-9
+
+
+@pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
+def test_single_ve_dgemm_correctness():
+    ve = ve_device_names(discover_devices())
+    if not ve:
+        pytest.skip("no VE devices")
+    ve_id = int(ve[0].replace("ve", ""))
+    rng = np.random.default_rng(2)
+    a = rng.standard_normal((96, 64))
+    b = rng.standard_normal((64, 80))
+    c, res = run_ve_dgemm_shard(a, b, ve_id=ve_id)
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-8
+    assert c.shape == (96, 80)
+
+
+@pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
+def test_multi_ve_layout_dgemm_correctness():
+    ve = ve_device_names(discover_devices())
+    if len(ve) < 1:
+        pytest.skip("no VE devices")
+    rng = np.random.default_rng(3)
+    m, k, n = 192, 128, 160
+    a = rng.standard_normal((m, k))
+    b = rng.standard_normal((k, n))
+    c, plan, results = multi_ve_layout_dgemm(a, b, ve, parallel=True)
+    ref = a @ b
+    err = float(np.max(np.abs(c - ref)))
+    assert err < 1e-8
+    assert all(r.status == "pass" for r in results)
+    assert sum(s.rows for s in plan.shards) == m
+
+
+@pytest.mark.skipif(not phi_device_present(), reason="no /dev/mic0")
+def test_phi_peak_smoke():
+    res = run_phi_peak_smoke()
+    if res.status == "skip":
+        pytest.skip(res.stderr or "phi peak binary missing")
+    assert res.status == "pass"
+    assert res.gflops > 100.0

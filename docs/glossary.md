@@ -197,8 +197,21 @@ VE 操作系统/管理栈组件；本机 `ve_exec` 报告 3.6.1。
 
 ---
 
+### ve_exec
+
+NEC 工具：在指定 VE 节点上执行 VE 架构二进制（`ve_exec -N <id> ./prog`）。本仓库 multi-VE 测试通过它对每张卡启动 NLC DGEMM。
+
+### Staging (文件暂存)
+
+Host 将输入矩阵写成 `.bin`，VE 进程读文件、写输出，再由 Host 读回。实现简单、依赖 VE 可见 Host FS；端到端吞吐受文件 I/O 限制，卡内 kernel GFLOPS 仍可接近 NLC 峰值。
+
+### micnativeloadex
+
+在 Host 上加载并运行 MIC native（`.mic`）程序的工具。Phi peak smoke 使用该路径。
+
 ## 文档维护日志
 
 | 日期 | 变更 |
 |------|------|
 | 2026-07-14 | 初版：覆盖 tensor-layouts / uni / 本机硬件相关词条 |
+| 2026-07-14 | 追加 ve_exec、Staging、micnativeloadex（实机测试相关） |
