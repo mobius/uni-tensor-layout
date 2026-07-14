@@ -152,7 +152,7 @@ def main() -> int:
         if phi.status == "fail":
             failed += 1
 
-        print("\n=== Phi layout dgemm (k1om-gcc / scp+ssh) ===")
+        print("\n=== Phi layout dgemm (icc-mmic or k1om-gcc / scp+ssh) ===")
         try:
             ap = np.ascontiguousarray(
                 rng.standard_normal((args.phi_m, args.phi_k), dtype=np.float64)
