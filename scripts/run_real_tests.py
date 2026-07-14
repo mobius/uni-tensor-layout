@@ -21,6 +21,7 @@ sys.path.insert(0, str(ROOT / "src"))
 import numpy as np
 
 from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
+from uni_cute_tensor.backends.phi_dgemm import run_phi_dgemm, try_icc_license
 from uni_cute_tensor.backends.phi_smoke import run_phi_peak_smoke
 from uni_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
 from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
@@ -34,6 +35,9 @@ def main() -> int:
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--skip-phi", action="store_true")
     ap.add_argument("--skip-ve", action="store_true")
+    ap.add_argument("--phi-m", type=int, default=256, help="Phi dgemm M (smaller default)")
+    ap.add_argument("--phi-k", type=int, default=256)
+    ap.add_argument("--phi-n", type=int, default=256)
     ap.add_argument("--json-out", type=Path, default=None)
     args = ap.parse_args()
 
@@ -115,6 +119,21 @@ def main() -> int:
                 failed += 1
 
     if not args.skip_phi:
+        print("\n=== ICC license probe (Comp-CL) ===")
+        lic = try_icc_license()
+        print(
+            f"  ok={lic.get('ok')}  requested={lic.get('feature_requested')}  "
+            f"license_file_present={lic.get('license_path_used') != 'missing'}"
+        )
+        if not lic.get("ok"):
+            print("  note: PSXE license has CCompL but ICC 16 needs Comp-CL; "
+                  "using k1om-gcc for Phi kernels")
+        report["cases"]["icc_license"] = {
+            "ok": bool(lic.get("ok")),
+            "feature_requested": lic.get("feature_requested"),
+            "fallback": "k1om-gcc" if not lic.get("ok") else "icc-mmic",
+        }
+
         print("\n=== Phi peak smoke ===")
         phi = run_phi_peak_smoke()
         print(
@@ -132,7 +151,37 @@ def main() -> int:
         }
         if phi.status == "fail":
             failed += 1
-        # skip does not fail the suite
+
+        print("\n=== Phi layout dgemm (k1om-gcc / scp+ssh) ===")
+        try:
+            ap = np.ascontiguousarray(
+                rng.standard_normal((args.phi_m, args.phi_k), dtype=np.float64)
+            )
+            bp = np.ascontiguousarray(
+                rng.standard_normal((args.phi_k, args.phi_n), dtype=np.float64)
+            )
+            _, phi_dg = run_phi_dgemm(ap, bp, threads=120)
+            print(
+                f"  status={phi_dg.status}  compiler={phi_dg.compiler}  "
+                f"err={phi_dg.max_abs_err:.3e}  kernel={phi_dg.gflops:.2f} GFLOPS  "
+                f"elapsed={phi_dg.elapsed_sec:.4f}s"
+            )
+            if phi_dg.stdout:
+                print(f"  {phi_dg.stdout.strip().splitlines()[0]}")
+            report["cases"]["phi_dgemm"] = {
+                "status": phi_dg.status,
+                "compiler": phi_dg.compiler,
+                "max_abs_err": phi_dg.max_abs_err,
+                "gflops": phi_dg.gflops,
+                "elapsed_sec": phi_dg.elapsed_sec,
+                "shape": [phi_dg.m, phi_dg.k, phi_dg.n],
+            }
+            if phi_dg.status != "pass":
+                failed += 1
+        except Exception as exc:  # noqa: BLE001 — surface device failures
+            print(f"  FAIL: {exc}")
+            report["cases"]["phi_dgemm"] = {"status": "fail", "error": str(exc)[:300]}
+            failed += 1
 
     report["failed"] = failed
     print(f"\n=== summary: failed={failed} ===")

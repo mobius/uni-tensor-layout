@@ -207,7 +207,15 @@ Host 将输入矩阵写成 `.bin`，VE 进程读文件、写输出，再由 Host
 
 ### micnativeloadex
 
-在 Host 上加载并运行 MIC native（`.mic`）程序的工具。Phi peak smoke 使用该路径。
+在 Host 上加载并运行 MIC native（`.mic`）程序的工具。Phi peak smoke 使用该路径。带文件输入的 DGEMM 则改用 **scp + ssh mic0**，因为卡上进程不能直接 `fopen` Host 路径。
+
+### Comp-CL / CCompL
+
+Intel FlexLM 特性名。ICC 16.0（PSXE 2016）检出 **Comp-CL**；较新的 Parallel Studio 许可组件列表常用 **CCompL**。若 license 仅有 CCompL 而无 Comp-CL，则出现 *No such feature exists (-5,357)*，本项目回退 **k1om-gcc** 交叉编译。
+
+### k1om / K1OM
+
+Knights Corner 的 ELF 机器类型（Intel K1OM）。MPSS 提供 `k1om-mpss-linux-gcc` 交叉工具链，可不依赖 ICC license 生成 `.mic` 可执行文件。
 
 ## 文档维护日志
 

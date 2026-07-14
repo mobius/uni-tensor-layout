@@ -1,7 +1,12 @@
-"""Backends: host reference, real VE NLC DGEMM, Phi smoke."""
+"""Backends: host reference, real VE NLC DGEMM, Phi dgemm/smoke."""
 
 from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
 from uni_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
+from uni_cute_tensor.backends.phi_dgemm import (
+    compile_phi_dgemm,
+    run_phi_dgemm,
+    try_icc_license,
+)
 from uni_cute_tensor.backends.phi_smoke import find_phi_peak_binary, run_phi_peak_smoke
 from uni_cute_tensor.backends.ve_dgemm import (
     compile_ve_dgemm,
@@ -21,4 +26,7 @@ __all__ = [
     "ve_toolchain_available",
     "run_phi_peak_smoke",
     "find_phi_peak_binary",
+    "compile_phi_dgemm",
+    "run_phi_dgemm",
+    "try_icc_license",
 ]

@@ -6,6 +6,7 @@ import numpy as np
 import pytest
 
 from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm
+from uni_cute_tensor.backends.phi_dgemm import run_phi_dgemm
 from uni_cute_tensor.backends.phi_smoke import phi_device_present, run_phi_peak_smoke
 from uni_cute_tensor.backends.ve_dgemm import (
     multi_ve_layout_dgemm,
@@ -66,3 +67,14 @@ def test_phi_peak_smoke():
         pytest.skip(res.stderr or "phi peak binary missing")
     assert res.status == "pass"
     assert res.gflops > 100.0
+
+
+@pytest.mark.skipif(not phi_device_present(), reason="no /dev/mic0")
+def test_phi_dgemm_correctness():
+    rng = np.random.default_rng(11)
+    a = rng.standard_normal((64, 48))
+    b = rng.standard_normal((48, 40))
+    c, res = run_phi_dgemm(a, b, threads=32)
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-6
+    assert c.shape == (64, 40)
