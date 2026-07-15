@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uni-cute-tensor"
-version = "0.8.0"
+version = "1.0.0"
 description = "CuTe layout algebra for Host AVX-512 + Xeon Phi + NEC VE heterogeneous systems"
 readme = "README.md"
 license = "MIT"
@@ -17,9 +17,19 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Hardware extras are mostly documentation markers: runtimes live on the machine
+# (ncc/libveo/icc). Listed deps are Python-side only.
+aveo = []
+phi = []
 viz = ["matplotlib>=3.5"]
 test = ["pytest>=7.0"]
 dev = ["pytest>=7.0", "matplotlib>=3.5", "ruff>=0.4"]
+all = ["matplotlib>=3.5", "pytest>=7.0", "ruff>=0.4"]
+
+[project.urls]
+Homepage = "https://github.com/mobius/uni-tensor-layout"
+Documentation = "https://github.com/mobius/uni-tensor-layout/blob/main/docs/INDEX.md"
+Repository = "https://github.com/mobius/uni-tensor-layout"
 
 [project.scripts]
 uct-check-hw = "uni_cute_tensor.cli:check_hw_main"
@@ -27,6 +37,13 @@ uct-demo-partition = "uni_cute_tensor.cli:demo_partition_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+uni_cute_tensor = [
+    "kernels/host/*.c",
+    "kernels/phi/*.c",
+    "kernels/ve/*.c",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

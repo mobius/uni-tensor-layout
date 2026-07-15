@@ -51,7 +51,12 @@ def host_blocked_dgemm(
     *,
     tile: int | None = None,
 ) -> tuple[np.ndarray, HostDgemmResult]:
-    """Pure-Python tiled GEMM (atom tile=8) for layout correctness."""
+    """Pure-Python tiled GEMM (atom tile=8) for layout correctness.
+
+    .. deprecated:: 1.0
+        Teaching / correctness path only — **not** a performance baseline.
+        Prefer ``host_dgemm(..., backend="openblas")`` or ``"auto"``.
+    """
     if tile is None:
         tile = HOST_AVX512_8x8x8_F64.shape_mnk[0]
     a = np.ascontiguousarray(a, dtype=np.float64)

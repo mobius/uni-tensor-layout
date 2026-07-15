@@ -3,7 +3,7 @@
 > 文档时间: 2026-07-14 22:32:06  
 > 基线: **v0.6.0** (`3270f73`)  
 > 前序计划: `docs/plan/20260714_220428_next_optimization_roadmap.md`（N+1～N+3 **已完成**）  
-> 状态: **M1（v0.7.0）+ M2（v0.8.0）完成**；M3 待实施
+> 状态: **Phase 2 完成** — M1 v0.7 / M2 v0.8 / **M3 v1.0.0**
 
 ---
 
@@ -120,14 +120,15 @@
 **出口**: 应用端到端正确 + 相对 Host 有可解释加速；layout plan 可复现。  
 **实现纪要**: `docs/impl/20260714_225100_m2_layout_spmv_dataprep.md`。
 
-### M3 — v1.0 冻结（约 1 迭代）
+### M3 — v1.0 冻结（约 1 迭代） — **DONE v1.0.0**
 
-1. W5 API 冻结 + extras  
-2. CI L0 + 文档索引刷新  
-3. 性能基线表固化进 README  
-4. 明确 deprecations（如仅教学用 blocked Python GEMM）  
+1. ~~W5 API 冻结 + extras~~  
+2. ~~CI L0 + 文档索引刷新~~  
+3. ~~性能基线表固化进 README~~  
+4. ~~明确 deprecations（如仅教学用 blocked Python GEMM）~~  
 
-**出口**: tag **v1.0.0**。
+**出口**: tag **v1.0.0**。  
+**实现纪要**: `docs/impl/20260714_230800_m3_v1_freeze.md`；API `docs/architecture/20260714_230700_api_v1.md`。
 
 ---
 
@@ -191,7 +192,7 @@
 2. 同步写 `docs/impl/<ts>_m1_*`  
 3. 每完成里程碑更新本文件进度表（追加「进度」节，不删历史）  
 
-**当前状态**: **M2 完成（v0.8.0）**。下一入口 **M3**（API 冻结 + CI + v1.0）。
+**当前状态**: **Phase 2 / v1.0.0 完成**。后续为维护与可选 1.x 增强（非常驻服务、校准收紧等）。
 
 ---
 
@@ -202,3 +203,4 @@
 | 2026-07-14 | 规划 | Phase 2 路线图建立 |
 | 2026-07-14 | **M1** | DataPlane + AVEO pin + Timeline + perf_gate；pinned@512 multi-batch ~**1.25×** session；device 15 pass |
 | 2026-07-14 | **M2** | PlacementPlan JSON + auto row/col/k + SpMV dataprep + uni TaskGraph；auto 单 VE ≫ 固定 3-VE mid-size |
+| 2026-07-14 | **M3** | API v1 冻结、CI L0、extras、README 基线、tag **v1.0.0** |

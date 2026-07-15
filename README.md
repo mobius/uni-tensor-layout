@@ -1,13 +1,13 @@
 # uni-tensor-layout (uni-cute-tensor)
 
-CuTe-style **tensor layout algebra** for the heterogeneous machine described by
-[uni-framework](https://github.com/mobius/uni-framework):
+CuTe-style **tensor layout algebra** and a thin heterogeneous runtime for the machine
+described by [uni-framework](https://github.com/mobius/uni-framework):
 
 | Component | Role |
 |-----------|------|
-| Host 2× Xeon Gold 6252 | Layout planning, AVX-512 atoms, reference GEMM |
-| Intel Xeon Phi 7120P | KNC atoms / irregular work (via uni) |
-| 3× NEC VE 1.0 | Dense FP64 (NLC tile atoms) |
+| Host 2× Xeon Gold 6252 | Layout planning, AVX-512 atoms, OpenBLAS GEMM |
+| Intel Xeon Phi 7120P | KNC / MKL / irregular prep (via uni) |
+| 3× NEC VE 1.0 | Dense FP64 (NLC / AVEO) |
 
 Built on [tensor-layouts](https://github.com/facebookresearch/tensor-layouts)
 (pure Python CuTe algebra — **no GPU required**).
@@ -16,85 +16,120 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v0.8.0** — Phase 2 **M2**: auto **PlacementPlan** (row/col/k + PowerCap) + **SpMV→dataprep→GEMM** app + uni **TaskGraph** bridge.
+**v1.0.0** — public API frozen. Phase 2 complete (DataPlane, auto PlacementPlan, SpMV app, CI L0).
 
-### Real hardware (this machine class)
+- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md)
+- Docs map: [`docs/INDEX.md`](docs/INDEX.md)
+- Glossary: [`docs/glossary.md`](docs/glossary.md)
 
-| Test | Result (example) |
-|------|------------------|
-| auto-place vs fixed 3-VE @512³ | **~0.19–0.27s vs ~0.51s** (auto picks 1 VE) |
-| SpMV+GEMM pipeline | e2e **pass** (err ~1e-12); uni TaskGraph **pass** |
-| multi-VE pool wall @1024³ | **~0.034 s** |
-| AVEO pinned 16×512 vs session | **~258 vs ~206 batch/s** (~**1.25×**) |
-| DataPlane `aveo_pinned` @512³ | wall **~0.008 s** (pass) |
-| Phi MKL @1024 | ~**626 GFLOPS** |
-| Host OpenBLAS @2048 | ~**500 GFLOPS** |
-| Summary + gate | `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md` |
-| Auto place / SpMV | `python scripts/bench_auto_place.py` / `bench_spmv_dataprep.py` |
+### Performance baseline (this machine class)
 
-Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC probe (file is never committed).
+| Scope | Case | Result |
+|-------|------|--------|
+| host | OpenBLAS @2048³ | ~**500** GFLOPS |
+| host | AVX-512 @512³ | ~**170** GFLOPS |
+| phi | MKL @1024³ | ~**626** GFLOPS |
+| ve | multi-VE pool @1024³ | wall **~0.034 s** |
+| ve | AVEO pinned 16×512 vs session | **~258 vs ~206** batch/s (~**1.25×**) |
+| ve | auto-place vs fixed 3-VE @512³ | **~0.2 s vs ~0.5 s** |
+| dp | `aveo_pinned` @512³ | wall **~0.008 s** |
+| app | SpMV→GEMM + uni TaskGraph | **pass** (err ~1e-12) |
 
-## Quick start (uv, isolated env)
+Regenerate table: `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md`.
+
+Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC/Phi (file is never committed).
+
+## Install (one page)
 
 ```bash
-# requires uv; does not touch system site-packages
+# requires uv; isolated env
 uv venv --python 3.13 env/.venv
 source env/.venv/bin/activate
 uv pip install -e ".[dev]"
 
-# hardware probe (no serial numbers printed)
+# extras (optional markers; toolchains stay on the machine)
+# uv pip install -e ".[aveo,phi,viz]"
+
+# hardware probe (no serial numbers)
 bash scripts/check_hw.sh
-# or:
-python -c "from uni_cute_tensor.cli import check_hw_main; check_hw_main()"
+# or: uct-check-hw
+
+# L0 CI locally (same as GitHub Actions)
+bash scripts/ci_l0.sh
 
 # demos
 python examples/demo_atoms.py
 python examples/demo_partition.py
 python examples/demo_real_ve.py
 
-# unit + device tests
-pytest -q
+# unit tests (no device) / device tests
+pytest -q -m "not device"
+pytest -q -m device
 
 # full real suite (Host + 3×VE + Phi)
 python scripts/run_real_tests.py --m 512 --k 512 --n 512
 ```
 
 Optional: set `UNI_ROOT` to a local [uni-framework](https://github.com/mobius/uni-framework)
-checkout for richer device discovery (defaults to `~/Work/uni` if present).
+checkout (defaults to `~/Work/uni` if present).
+
+### Extras
+
+| Extra | Meaning |
+|-------|---------|
+| `test` | pytest |
+| `dev` | pytest + matplotlib + ruff |
+| `viz` | matplotlib |
+| `aveo` | marker for AVEO/VEO host stack (system `libveo` + ncc) |
+| `phi` | marker for Phi/ICC path (license + mic tools) |
+| `all` | dev stack |
+
+## Public API (quick)
+
+```python
+import uni_cute_tensor as uct
+import numpy as np
+
+A, B = np.random.randn(128, 96), np.random.randn(96, 80)
+C, r = uct.host_dgemm(A, B, backend="auto")
+
+plan = uct.partition_matrix_rows(128, 80, ["ve1", "ve2"], k=96)
+choice = uct.choose_best_placement(128, 80, 96, ["ve1", "ve2", "ve3"])
+# on VE hardware:
+# res = uct.execute_plan(A, B, choice.plan)
+
+with uct.create_dataplane("host") as plane:
+    out = plane.gemm(uct.GemmRequest(a=A, b=B))
+```
+
+Device backends: import from `uni_cute_tensor.backends.*` / `apps.*` (stable contracts in the API doc).
+
+### Deprecations (1.x kept)
+
+- `host_blocked_dgemm` / `backend="blocked"` — **teaching only**, not a perf baseline.
+- Prefer OpenBLAS / NLC / MKL / AVEO pinned for performance.
 
 ## What works on this hardware class
 
 | Feature | Support |
 |---------|---------|
-| tensor-layouts algebra + viz | Yes (Host Python ≥3.10) |
-| Custom Host / Phi / VE atoms | Yes (planning layouts) |
-| Multi-VE row partition + task specs | Yes |
-| Host-simulated sharded DGEMM correctness | Yes |
-| NVIDIA / AMD / AMX / Xe real MMA | Educational only (no such HW) |
+| tensor-layouts algebra | Yes (Python ≥3.10) |
+| Custom Host / Phi / VE atoms | Yes |
+| Multi-VE partition + plan runner | Yes |
+| DataPlane + Timeline | Yes |
+| SpMV dataprep + TaskGraph | Yes |
+| NVIDIA / AMD / AMX real MMA | Educational only (no such HW) |
 
-## Layout of the repo
+## Repo layout
 
 ```
 src/uni_cute_tensor/
-  atoms/          # HOST_AVX512, PHI_KNC, VE_NLC atoms
-  partition/      # PlacementPlan + cost model + plan runner
-  apps/           # hetero + SpMV/dataprep pipelines
-  bridge/         # uni adapter + TaskGraph bridge
-  backends/       # host / Phi / VE / AVEO GEMM
-  runtime/        # DataPlane + Timeline (Phase 2)
-docs/
-  research|plan|impl|architecture/   # timestamped process docs
-  glossary.md
-scripts/check_hw.sh
-scripts/audit_sensitive.sh
-scripts/bench_summary.py
-scripts/bench_dataplane.py
+  atoms/ partition/ apps/ bridge/ backends/ runtime/
+docs/                 # INDEX + research|plan|impl|architecture
+scripts/ci_l0.sh      # local L0
+scripts/bench_*.py
+.github/workflows/ci.yml
 ```
-
-## Documentation
-
-Process docs use `YYYYMMDD_HHMMSS_*.md` under `docs/{research,plan,impl,architecture}/`.
-Technical terms: [`docs/glossary.md`](docs/glossary.md).
 
 ## Security
 

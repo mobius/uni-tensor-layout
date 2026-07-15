@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  l0:
+    name: L0 unit (no device)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[test]"
+
+      - name: Audit (no secrets)
+        run: bash scripts/audit_sensitive.sh
+
+      - name: L0 tests (exclude device)
+        run: pytest -q -m "not device"
+
+      - name: Import public API
+        run: |
+          python -c "import uni_cute_tensor as u; assert u.__version__; from uni_cute_tensor import host_dgemm, PowerCap, create_dataplane, choose_best_placement; print(u.__version__, 'ok')"

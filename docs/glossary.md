@@ -267,3 +267,4 @@ uni-framework 的 DAG 调度器（拓扑 + 并行 + PowerCap）。`bridge/task_g
 | 2026-07-14 | 追加 ve_exec、Staging、micnativeloadex（实机测试相关） |
 | 2026-07-14 | 追加 DataPlane、Pinned buffer、Timeline（Phase 2 M1） |
 | 2026-07-14 | 追加 PlacementPlan、CSR SpMV、TaskGraph（Phase 2 M2） |
+| 2026-07-14 | v1.0.0：API 冻结文档见 architecture/*_api_v1.md |
