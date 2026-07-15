@@ -7,7 +7,7 @@
 | Doc | Purpose |
 |-----|---------|
 | [README.md](../README.md) | Install, status, performance baseline |
-| [../examples/README.md](../examples/README.md) | **Terminal examples E1/E2** |
+| [../examples/README.md](../examples/README.md) | **Terminal examples E1–E5** |
 | [glossary.md](glossary.md) | Terms |
 | [architecture/20260714_230700_api_v1.md](architecture/20260714_230700_api_v1.md) | **Public API v1 freeze** |
 | [architecture/20260714_013534_uni_cute_tensor_architecture.md](architecture/20260714_013534_uni_cute_tensor_architecture.md) | Original architecture draft |
@@ -19,7 +19,7 @@
 | [plan/20260714_013534_implementation_plan.md](plan/20260714_013534_implementation_plan.md) | Phase 0–5 initial plan |
 | [plan/20260714_220428_next_optimization_roadmap.md](plan/20260714_220428_next_optimization_roadmap.md) | N+1–N+3 (done) |
 | [plan/20260714_223206_phase2_system_roadmap.md](plan/20260714_223206_phase2_system_roadmap.md) | Phase 2 M1–M3 → v1.0 |
-| [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (X1 done) |
+| [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
 
 ## Implementation notes (selected)
 
@@ -29,7 +29,8 @@
 | [impl/20260714_223845_perf_gate.md](impl/20260714_223845_perf_gate.md) | Perf gate sample |
 | [impl/20260714_225100_m2_layout_spmv_dataprep.md](impl/20260714_225100_m2_layout_spmv_dataprep.md) | M2 placement + SpMV |
 | [impl/20260714_230800_m3_v1_freeze.md](impl/20260714_230800_m3_v1_freeze.md) | M3 v1.0 freeze |
-| [impl/20260714_233200_examples_e1_e2.md](impl/20260714_233200_examples_e1_e2.md) | Terminal examples X1 |
+| [impl/20260714_233200_examples_e1_e2.md](impl/20260714_233200_examples_e1_e2.md) | Terminal examples X1 (E1–E2) |
+| [impl/20260715_010300_examples_e3_e5.md](impl/20260715_010300_examples_e3_e5.md) | Terminal examples X2 (E3–E5) |
 
 ## Research
 

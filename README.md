@@ -57,9 +57,12 @@ bash scripts/check_hw.sh
 # L0 CI locally (same as GitHub Actions)
 bash scripts/ci_l0.sh
 
-# terminal-facing examples (E1/E2) — see examples/README.md
+# terminal-facing examples (E1–E5) — see examples/README.md
 python examples/e1_batch_dense_regression.py
 python examples/e2_sparse_then_dense.py
+python examples/e3_dataprep_project.py
+python examples/e4_job_dag.py
+python examples/e5_sustained_jobs.py --jobs 12
 # legacy path demos
 python examples/demo_atoms.py
 python examples/demo_partition.py

@@ -3,7 +3,7 @@
 > 文档时间: 2026-07-14 23:27:00  
 > 基线: **v1.0.0**（API 冻结、DataPlane、Placement、SpMV/dataprep、TaskGraph 桥）  
 > 对齐: [uni-framework](https://github.com/mobius/uni-framework) 应用层（hetero_spmv / hetero_dataprep / examples/*）  
-> 状态: **X1 已完成**（E1+E2）；X2（E3–E5）待实施
+> 状态: **X1+X2 完成**（E1–E5 全套）
 
 ---
 
@@ -217,15 +217,16 @@ docs/impl/<ts>_examples_e1_e5.md
 **实现纪要**: `docs/impl/20260714_233200_examples_e1_e2.md`  
 **出口**: E1+E2 本机全绿；host-only smoke 3 pass。
 
-### 迭代 X2（P1–P2）
+### 迭代 X2（P1–P2） — **DONE**
 
-1. **E3** dataprep 投影  
-2. **E4** job DAG  
-3. **E5** sustained jobs（薄封装）  
-4. 与 uni 的对照表（examples README 已有初表）  
-5. 可选：Phi 路径在 E1/E3 默认探测启用  
+1. ~~**E3** dataprep 投影~~  
+2. ~~**E4** job DAG~~  
+3. ~~**E5** sustained jobs~~  
+4. ~~与 uni 的对照表~~（`examples/README.md`）  
+5. Phi 仍默认关（`--phi`）  
 
-**出口**: E3–E5 有文档与 host-only 或全栈其一可跑。
+**实现纪要**: `docs/impl/20260715_010300_examples_e3_e5.md`  
+**出口**: E3–E5 host-only smoke + 本机全栈 pass。
 
 ---
 
@@ -269,7 +270,7 @@ docs/impl/<ts>_examples_e1_e5.md
 1. 确认案例优先级是否同意 **E1→E2→E3→E4→E5**。  
 2. 确认是否必须 **E2 stencil CSR**（更「终端」）还是随机 CSR 即可。  
 3. 确认 Phi 在 example 中默认 **探测启用** 还是 **默认关、--phi 打开**。  
-4. ~~go → X1 已实施~~；下一确认后做 **X2（E3–E5）**。
+4. ~~X1 + X2 均已实施（E1–E5）~~。
 
 ---
 

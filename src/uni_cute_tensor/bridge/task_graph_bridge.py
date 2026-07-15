@@ -194,6 +194,123 @@ def build_spmv_gemm_graph_fns(
     return nodes
 
 
+def run_task_graph(
+    nodes: dict[str, dict[str, Any]],
+    *,
+    power_cap: Optional[PowerCap] = None,
+    prefer_uni: bool = True,
+    critical_nodes: Optional[Sequence[str]] = None,
+) -> BridgeGraphResult:
+    """Execute a generic node dict via uni TaskGraph if available, else local DAG.
+
+    Each node: {device, op, depends_on, run_fn} where run_fn() -> dict.
+    """
+    if power_cap is None:
+        power_cap = PowerCap()
+    notes: list[str] = []
+    t0 = time.perf_counter()
+    critical = list(critical_nodes) if critical_nodes is not None else list(nodes.keys())
+
+    TaskGraph, TaskNode = try_import_uni_task_graph() if prefer_uni else (None, None)
+    if TaskGraph is not None and TaskNode is not None:
+        notes.append("backend=uni")
+        uni_cap = getattr(power_cap, "_uni", None)
+        graph = TaskGraph(power_cap=uni_cap)
+        for name, spec in nodes.items():
+            graph.add(
+                TaskNode(
+                    name=name,
+                    device=spec["device"],
+                    run_fn=spec["run_fn"],
+                    depends_on=list(spec.get("depends_on", [])),
+                    op=spec.get("op", "idle"),
+                    estimated_watts=float(
+                        spec.get(
+                            "estimated_watts",
+                            280.0 if spec.get("op") == "dgemm" else 100.0,
+                        )
+                    ),
+                )
+            )
+        try:
+            raw = asyncio.run(graph.execute(verbose=False))
+            results: dict[str, BridgeTaskResult] = {}
+            for name, val in (raw or {}).items():
+                if isinstance(val, dict):
+                    st = str(val.get("status", "pass"))
+                    results[name] = BridgeTaskResult(
+                        name=name,
+                        device=nodes[name]["device"],
+                        wall_sec=float(val.get("wall", 0.0)),
+                        status=st,
+                        payload=val,
+                    )
+                else:
+                    results[name] = BridgeTaskResult(
+                        name=name,
+                        device=nodes[name]["device"],
+                        wall_sec=0.0,
+                        status="pass",
+                        payload={"value": val},
+                    )
+            for name in nodes:
+                if name not in results:
+                    results[name] = BridgeTaskResult(
+                        name=name,
+                        device=nodes[name]["device"],
+                        wall_sec=0.0,
+                        status="missing",
+                    )
+            wall = time.perf_counter() - t0
+            status = "pass"
+            for cn in critical:
+                r = results.get(cn)
+                if r is None or r.status in ("fail", "failed", "missing"):
+                    status = "fail"
+                    break
+                if isinstance(r.payload, dict) and r.payload.get("status") in (
+                    "fail",
+                    "failed",
+                ):
+                    status = "fail"
+                    break
+            return BridgeGraphResult(
+                results=results,
+                wall_sec=wall,
+                backend="uni",
+                status=status,
+                notes=notes,
+            )
+        except Exception as exc:
+            notes.append(f"uni_failed:{exc};fallback=local")
+
+    notes.append("backend=local")
+    results = asyncio.run(_local_execute(nodes, power_cap))
+    wall = time.perf_counter() - t0
+    status = "pass"
+    if any(r.status == "fail" for r in results.values()):
+        status = "fail"
+    else:
+        for cn in critical:
+            r = results.get(cn)
+            if r is None or r.status not in ("pass", "skip"):
+                status = "fail"
+                break
+            if isinstance(r.payload, dict) and r.payload.get("status") in (
+                "fail",
+                "failed",
+            ):
+                status = "fail"
+                break
+    return BridgeGraphResult(
+        results=results,
+        wall_sec=wall,
+        backend="local",
+        status=status,
+        notes=notes,
+    )
+
+
 def run_spmv_gemm_task_graph(
     y_builder: Callable[[], np.ndarray],
     b: np.ndarray,
@@ -216,93 +333,9 @@ def run_spmv_gemm_task_graph(
         beta=beta,
         use_phi_prep=use_phi_prep,
     )
-    notes: list[str] = []
-    t0 = time.perf_counter()
-
-    TaskGraph, TaskNode = try_import_uni_task_graph() if prefer_uni else (None, None)
-    if TaskGraph is not None and TaskNode is not None:
-        notes.append("backend=uni")
-        # uni TaskGraph._run_node runs run_fn via run_in_executor → must be sync
-        uni_cap = getattr(power_cap, "_uni", None)
-        graph = TaskGraph(power_cap=uni_cap)
-
-        for name, spec in nodes.items():
-            graph.add(
-                TaskNode(
-                    name=name,
-                    device=spec["device"],
-                    run_fn=spec["run_fn"],  # sync callable → dict
-                    depends_on=list(spec.get("depends_on", [])),
-                    op=spec.get("op", "idle"),
-                    estimated_watts=280.0 if spec.get("op") == "dgemm" else 100.0,
-                )
-            )
-        try:
-            raw = asyncio.run(graph.execute(verbose=False))
-            results = {}
-            status = "pass"
-            for name, val in (raw or {}).items():
-                if isinstance(val, dict):
-                    st = val.get("status", "pass")
-                    if st in ("fail", "failed"):
-                        status = "fail"
-                    results[name] = BridgeTaskResult(
-                        name=name,
-                        device=nodes[name]["device"],
-                        wall_sec=float(val.get("wall", 0.0)),
-                        status=str(st),
-                        payload=val,
-                    )
-                else:
-                    results[name] = BridgeTaskResult(
-                        name=name,
-                        device=nodes[name]["device"],
-                        wall_sec=0.0,
-                        status="pass",
-                        payload={"value": val},
-                    )
-            # mark missing nodes
-            for name in nodes:
-                if name not in results:
-                    results[name] = BridgeTaskResult(
-                        name=name,
-                        device=nodes[name]["device"],
-                        wall_sec=0.0,
-                        status="missing",
-                    )
-                    status = "fail"
-            wall = time.perf_counter() - t0
-            if status == "pass" or any(
-                isinstance(v.payload, dict) and v.payload.get("status") == "pass"
-                for v in results.values()
-            ):
-                # gemm node is the critical correctness check
-                gemm = results.get("gemm")
-                if gemm and gemm.payload.get("status") == "pass":
-                    status = "pass"
-            return BridgeGraphResult(
-                results=results,
-                wall_sec=wall,
-                backend="uni",
-                status=status,
-                notes=notes,
-            )
-        except Exception as exc:
-            notes.append(f"uni_failed:{exc};fallback=local")
-
-    # local fallback
-    notes.append("backend=local")
-    results = asyncio.run(_local_execute(nodes, power_cap))
-    wall = time.perf_counter() - t0
-    status = "pass" if all(r.status in ("pass", "skip") for r in results.values()) and any(
-        r.status == "pass" for r in results.values()
-    ) else "fail"
-    if any(r.status == "fail" for r in results.values()):
-        status = "fail"
-    return BridgeGraphResult(
-        results=results,
-        wall_sec=wall,
-        backend="local",
-        status=status,
-        notes=notes,
+    return run_task_graph(
+        nodes,
+        power_cap=power_cap,
+        prefer_uni=prefer_uni,
+        critical_nodes=["gemm"],
     )
