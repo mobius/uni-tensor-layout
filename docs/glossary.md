@@ -223,6 +223,14 @@ Knights Corner 的 ELF 机器类型（Intel K1OM）。MPSS 提供 `k1om-mpss-lin
 
 厂商稠密线性代数库。本机 Phi 使用 **MIC 版** `libmkl_*`（`icc_mic_libs` / 容器 `mkl/lib/mic`）通过 `cblas_dgemm` 做 native DGEMM，大矩阵可达 ~700+ GFLOPS。
 
+### VeWorkerPool
+
+常驻 `ve_exec` 进程池：每张 VE 上跑 `dgemm_worker`，用文件协议投递 COMBINED/SPLIT 作业，避免每次 DGEMM 重新拉起进程。中小规模 wall 可快数倍到十倍。
+
+### OpenBLAS
+
+开源 BLAS。本机 numpy 链接 **OpenBLAS 0.3.33**（scipy-openblas64）。Host 公平对照见 `scripts/bench_host_blas_fair.py`。
+
 ## 文档维护日志
 
 | 日期 | 变更 |

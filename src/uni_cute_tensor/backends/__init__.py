@@ -18,6 +18,12 @@ from uni_cute_tensor.backends.ve_dgemm import (
     run_ve_dgemm_shard,
     ve_toolchain_available,
 )
+from uni_cute_tensor.backends.ve_worker import (
+    VeWorkerPool,
+    compile_ve_worker,
+    multi_ve_layout_dgemm_pooled,
+)
+from uni_cute_tensor.backends.phi_prep import run_phi_prep_scale
 
 __all__ = [
     "host_dgemm_reference",
@@ -29,6 +35,10 @@ __all__ = [
     "run_ve_dgemm_shard",
     "multi_ve_layout_dgemm",
     "ve_toolchain_available",
+    "VeWorkerPool",
+    "compile_ve_worker",
+    "multi_ve_layout_dgemm_pooled",
+    "run_phi_prep_scale",
     "run_phi_peak_smoke",
     "find_phi_peak_binary",
     "compile_phi_dgemm",

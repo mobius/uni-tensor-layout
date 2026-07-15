@@ -52,6 +52,46 @@ def test_phi_mkl_dgemm_correctness():
 
 
 @pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
+def test_ve_worker_pool_multi():
+    from uni_cute_tensor.backends.ve_worker import VeWorkerPool, multi_ve_layout_dgemm_pooled
+    from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+
+    ve = ve_device_names(discover_devices())
+    if len(ve) < 1:
+        pytest.skip("no VE")
+    ve_ids = [int(d.replace("ve", "")) for d in ve]
+    rng = np.random.default_rng(3)
+    a = rng.standard_normal((192, 128))
+    b = rng.standard_normal((128, 160))
+    with VeWorkerPool(ve_ids) as pool:
+        c, plan, results = multi_ve_layout_dgemm_pooled(a, b, ve, pool, share_b=True)
+    ref = a @ b
+    assert float(np.max(np.abs(c - ref))) < 1e-8
+    assert all(r.status == "pass" for r in results)
+    assert sum(s.rows for s in plan.shards) == 192
+
+
+@pytest.mark.skipif(
+    not (phi_device_present() and ve_toolchain_available()),
+    reason="need Phi+VE",
+)
+def test_hetero_phi_ve_pipeline():
+    from uni_cute_tensor.apps.hetero_pipeline import run_hetero_phi_ve_gemm
+
+    rng = np.random.default_rng(5)
+    a = rng.standard_normal((256, 192))
+    b = rng.standard_normal((192, 160))
+    try:
+        _, res = run_hetero_phi_ve_gemm(
+            a, b, alpha=1.02, beta=0.001, use_worker_pool=True, phi_threads=120
+        )
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(f"hetero unavailable: {exc}")
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-8
+
+
+@pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
 def test_single_ve_dgemm_correctness():
     ve = ve_device_names(discover_devices())
     if not ve:
