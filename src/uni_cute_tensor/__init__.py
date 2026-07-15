@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 from uni_cute_tensor.atoms import (
     HOST_AVX512_8x8x8_F64,
