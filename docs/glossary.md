@@ -247,6 +247,18 @@ NEC **Vector Engine Offloading**：Host 通过 `libveo` 在 VE 上 `alloc/write/
 
 运行时可观测事件流：`phase` ∈ h2d \| kernel \| d2h \| wait \| host \| other，字段含 `duration_sec`、`device`、`job_id`。`Timeline.write_jsonl` / `summary()`。DataPlane 热路径通过 `timeline_scope` 记录。
 
+### PlacementPlan
+
+多设备张量放置计划：策略 `row_blocks` \| `col_blocks` \| `k_split`，含 dtype、strides、backend（VE_NLC/PHI_MKL/HOST_*）、代价估计；JSON 可复现。`choose_best_placement` 在 PowerCap 下选策略与设备子集。
+
+### CSR SpMV
+
+压缩稀疏行格式的稀疏矩阵向量/矩阵乘。本仓库 `apps/spmv_dataprep` 用 Host CSR 做不规则阶段，再接稠密 GEMM（VE auto plan）。
+
+### TaskGraph
+
+uni-framework 的 DAG 调度器（拓扑 + 并行 + PowerCap）。`bridge/task_graph_bridge` 在可用时对接，否则 local asyncio 回退。
+
 ## 文档维护日志
 
 | 日期 | 变更 |
@@ -254,3 +266,4 @@ NEC **Vector Engine Offloading**：Host 通过 `libveo` 在 VE 上 `alloc/write/
 | 2026-07-14 | 初版：覆盖 tensor-layouts / uni / 本机硬件相关词条 |
 | 2026-07-14 | 追加 ve_exec、Staging、micnativeloadex（实机测试相关） |
 | 2026-07-14 | 追加 DataPlane、Pinned buffer、Timeline（Phase 2 M1） |
+| 2026-07-14 | 追加 PlacementPlan、CSR SpMV、TaskGraph（Phase 2 M2） |

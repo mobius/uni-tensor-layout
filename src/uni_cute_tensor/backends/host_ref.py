@@ -21,21 +21,28 @@ def host_sharded_dgemm(
     b: np.ndarray,
     plan: PlacementPlan,
 ) -> np.ndarray:
-    """Execute row-sharded GEMM on host following PlacementPlan (simulates multi-device).
-
-    Each shard computes C[rs:re, :] = A[rs:re, :] @ B.
-    """
+    """Execute GEMM on host following PlacementPlan (row/col/k strategies)."""
     m, k = a.shape
     k2, n = b.shape
     if k != k2:
         raise ValueError("inner dim mismatch")
     if plan.global_shape != (m, n):
-        # plan is for C shape
         if plan.global_shape[0] != m or plan.global_shape[1] != n:
             raise ValueError(
                 f"plan shape {plan.global_shape} != C shape {(m, n)}"
             )
     c = np.zeros((m, n), dtype=np.result_type(a, b))
+    if plan.strategy == "col_blocks":
+        for shard in plan.shards:
+            cs, ce = shard.col_start, shard.col_end
+            c[:, cs:ce] = a @ b[:, cs:ce]
+        return c
+    if plan.strategy == "k_split":
+        for shard in plan.shards:
+            ke = shard.k_end if shard.k_end > 0 else (plan.k or k)
+            c += a[:, shard.k_start : ke] @ b[shard.k_start : ke, :]
+        return c
+    # default row_blocks
     for shard in plan.shards:
         rs, re = shard.row_start, shard.row_end
         c[rs:re, :] = a[rs:re, :] @ b
