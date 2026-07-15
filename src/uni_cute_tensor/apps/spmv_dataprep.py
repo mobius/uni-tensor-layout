@@ -77,6 +77,44 @@ def random_csr(
     )
 
 
+def stencil5_csr(nx: int, ny: int, *, diag: float = 4.0, off: float = -1.0) -> CSRMatrix:
+    """2D five-point Laplacian-style CSR on an nx×ny grid (row-major nodes).
+
+    Terminal-oriented pattern: sparse grid operator on structured mesh.
+    Square system: n = nx * ny rows and cols.
+    """
+    if nx < 1 or ny < 1:
+        raise ValueError("nx, ny must be positive")
+    n = nx * ny
+    indptr = [0]
+    indices: list[int] = []
+    data: list[float] = []
+    for j in range(ny):
+        for i in range(nx):
+            row = j * nx + i
+            cols_vals: list[tuple[int, float]] = [(row, diag)]
+            if i > 0:
+                cols_vals.append((row - 1, off))
+            if i + 1 < nx:
+                cols_vals.append((row + 1, off))
+            if j > 0:
+                cols_vals.append((row - nx, off))
+            if j + 1 < ny:
+                cols_vals.append((row + nx, off))
+            cols_vals.sort(key=lambda t: t[0])
+            for c, v in cols_vals:
+                indices.append(c)
+                data.append(v)
+            indptr.append(len(indices))
+    return CSRMatrix(
+        nrows=n,
+        ncols=n,
+        indptr=np.asarray(indptr, dtype=np.int32),
+        indices=np.asarray(indices, dtype=np.int32),
+        data=np.asarray(data, dtype=np.float64),
+    )
+
+
 def csr_spmv(csr: CSRMatrix, x: np.ndarray) -> np.ndarray:
     """y = A_sp @ x  (host CSR SpMV)."""
     x = np.ascontiguousarray(x, dtype=np.float64)

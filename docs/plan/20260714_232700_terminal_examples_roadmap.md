@@ -3,7 +3,7 @@
 > 文档时间: 2026-07-14 23:27:00  
 > 基线: **v1.0.0**（API 冻结、DataPlane、Placement、SpMV/dataprep、TaskGraph 桥）  
 > 对齐: [uni-framework](https://github.com/mobius/uni-framework) 应用层（hetero_spmv / hetero_dataprep / examples/*）  
-> 状态: **规划中（先计划，未实施）**
+> 状态: **X1 已完成**（E1+E2）；X2（E3–E5）待实施
 
 ---
 
@@ -206,23 +206,26 @@ docs/impl/<ts>_examples_e1_e5.md
 
 ## 7. 实施切片（建议 2 个迭代）
 
-### 迭代 X1（P0，约 1 次提交）
+### 迭代 X1（P0） — **DONE**
 
-1. `examples/_common.py` + `examples/README.md`  
-2. **E1** 批处理稠密回归  
-3. **E2** sparse→dense（包装/增强 spmv_dataprep + stencil 可选）  
-4. 短 impl 纪要 + README 导航  
-5. L0：host-only 冒烟进 `tests/test_examples_smoke.py`（或 subprocess 轻量）
+1. ~~`examples/_common.py` + `examples/README.md`~~  
+2. ~~**E1** 批处理稠密回归~~  
+3. ~~**E2** sparse→dense + **stencil5 CSR**~~  
+4. ~~短 impl 纪要 + README 导航~~  
+5. ~~L0：`tests/test_examples_smoke.py`~~  
+
+**实现纪要**: `docs/impl/20260714_233200_examples_e1_e2.md`  
+**出口**: E1+E2 本机全绿；host-only smoke 3 pass。
 
 ### 迭代 X2（P1–P2）
 
 1. **E3** dataprep 投影  
 2. **E4** job DAG  
 3. **E5** sustained jobs（薄封装）  
-4. 与 uni 的对照表（`docs/plan` 或 examples README）  
+4. 与 uni 的对照表（examples README 已有初表）  
 5. 可选：Phi 路径在 E1/E3 默认探测启用  
 
-**出口**: 至少 E1+E2 默认路径在本机全绿；E3–E5 有文档与 host-only 或全栈其一可跑。
+**出口**: E3–E5 有文档与 host-only 或全栈其一可跑。
 
 ---
 
@@ -266,7 +269,7 @@ docs/impl/<ts>_examples_e1_e5.md
 1. 确认案例优先级是否同意 **E1→E2→E3→E4→E5**。  
 2. 确认是否必须 **E2 stencil CSR**（更「终端」）还是随机 CSR 即可。  
 3. 确认 Phi 在 example 中默认 **探测启用** 还是 **默认关、--phi 打开**。  
-4. 你回复 **go / 按 X1 开始** 后写代码；本文件仅计划。
+4. ~~go → X1 已实施~~；下一确认后做 **X2（E3–E5）**。
 
 ---
 
