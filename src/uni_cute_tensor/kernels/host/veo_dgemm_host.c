@@ -257,6 +257,101 @@ EXPORT int aveo_session_dgemm_async(struct aveo_session *s, int M, int N, int K,
     return 0;
 }
 
+/*
+ * Multi-batch DGEMM reusing one set of VE buffers (avoids alloc/free per batch).
+ * Double-slot pipeline: while read of batch i-1 completes on host wait path,
+ * next iteration uses the other slot for H2D of batch i after previous call.
+ * Context queue remains ordered; main win is allocation reuse + dual slots.
+ *
+ * As/Bs/Cs: host pointer arrays length nbatch; all batches same M,N,K.
+ */
+EXPORT int aveo_session_dgemm_batch(struct aveo_session *s, int nbatch,
+                                    int M, int N, int K,
+                                    const double **As, const double **Bs,
+                                    double **Cs, double *elapsed_out)
+{
+    if (!s || !s->proc || !s->ctx || nbatch <= 0 || !As || !Bs || !Cs)
+        return -1;
+
+    size_t a_bytes = (size_t)M * K * sizeof(double);
+    size_t b_bytes = (size_t)K * N * sizeof(double);
+    size_t c_bytes = (size_t)M * N * sizeof(double);
+
+    uint64_t va[2] = {0, 0}, vb[2] = {0, 0}, vc[2] = {0, 0};
+    for (int sidx = 0; sidx < 2; sidx++) {
+        if (veo_alloc_mem(s->proc, &va[sidx], a_bytes) ||
+            veo_alloc_mem(s->proc, &vb[sidx], b_bytes) ||
+            veo_alloc_mem(s->proc, &vc[sidx], c_bytes))
+            goto fail_alloc;
+    }
+
+    double t0 = tnow();
+    uint64_t res = 0;
+    uint64_t pending_reads[2] = {VEO_REQUEST_ID_INVALID, VEO_REQUEST_ID_INVALID};
+
+    for (int i = 0; i < nbatch; i++) {
+        int slot = i & 1;
+        /* free slot: finish any pending read on this slot */
+        if (pending_reads[slot] != VEO_REQUEST_ID_INVALID) {
+            if (veo_call_wait_result(s->ctx, pending_reads[slot], &res) != VEO_COMMAND_OK)
+                goto fail_run;
+            pending_reads[slot] = VEO_REQUEST_ID_INVALID;
+        }
+
+        uint64_t ra = veo_async_write_mem(s->ctx, va[slot], As[i], a_bytes);
+        uint64_t rb = veo_async_write_mem(s->ctx, vb[slot], Bs[i], b_bytes);
+        if (veo_call_wait_result(s->ctx, ra, &res) != VEO_COMMAND_OK ||
+            veo_call_wait_result(s->ctx, rb, &res) != VEO_COMMAND_OK)
+            goto fail_run;
+
+        struct veo_args *arg = veo_args_alloc();
+        veo_args_set_u64(arg, 0, va[slot]);
+        veo_args_set_u64(arg, 1, vb[slot]);
+        veo_args_set_u64(arg, 2, vc[slot]);
+        veo_args_set_i64(arg, 3, M);
+        veo_args_set_i64(arg, 4, N);
+        veo_args_set_i64(arg, 5, K);
+        uint64_t rcid = veo_call_async(s->ctx, s->sym, arg);
+        if (veo_call_wait_result(s->ctx, rcid, &res) != VEO_COMMAND_OK) {
+            veo_args_free(arg);
+            goto fail_run;
+        }
+        veo_args_free(arg);
+
+        pending_reads[slot] =
+            veo_async_read_mem(s->ctx, Cs[i], vc[slot], c_bytes);
+    }
+    for (int sidx = 0; sidx < 2; sidx++) {
+        if (pending_reads[sidx] != VEO_REQUEST_ID_INVALID) {
+            if (veo_call_wait_result(s->ctx, pending_reads[sidx], &res) != VEO_COMMAND_OK)
+                goto fail_run;
+        }
+    }
+
+    if (elapsed_out)
+        *elapsed_out = tnow() - t0;
+    for (int j = 0; j < 2; j++) {
+        veo_free_mem(s->proc, va[j]);
+        veo_free_mem(s->proc, vb[j]);
+        veo_free_mem(s->proc, vc[j]);
+    }
+    return 0;
+
+fail_run:
+    if (elapsed_out)
+        *elapsed_out = tnow() - t0;
+fail_alloc:
+    for (int j = 0; j < 2; j++) {
+        if (va[j])
+            veo_free_mem(s->proc, va[j]);
+        if (vb[j])
+            veo_free_mem(s->proc, vb[j]);
+        if (vc[j])
+            veo_free_mem(s->proc, vc[j]);
+    }
+    return -3;
+}
+
 EXPORT void aveo_session_close(struct aveo_session *s)
 {
     if (!s)

@@ -1,15 +1,17 @@
-"""Persistent Phi worker (ssh + card-side loop) for SCALE prep."""
+"""Persistent Phi worker with low-overhead control (ssh remote shell, minimal scp).
+
+Control plane uses a single ssh invocation to write job.cmd+job.go and poll status
+(no scp of control files). Data plane still scp's matrices (or ssh cat).
+"""
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import struct
 import subprocess
 import tempfile
 import time
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -68,41 +70,37 @@ icc -std=c99 -mmic -O3 -openmp -o /tmp/phi_worker.mic /tmp/phi_worker.c
 
 
 class PhiWorker:
-    """One long-lived phi_worker.mic on mic0."""
+    """Long-lived phi_worker.mic; control via remote shell (not scp for cmd/go)."""
 
     def __init__(self, *, remote_dir: str = "/tmp/uni_cute_phi_worker"):
         self.remote_dir = remote_dir
         self._proc: Optional[subprocess.Popen] = None
-        self._host_ctrl = Path(tempfile.mkdtemp(prefix="cct_phi_ctrl_"))
+        self._ssh = _ssh_base()
+        self._scp = _scp_base()
+
+    def _remote(self, script: str, *, timeout: float = 60.0) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            self._ssh + [MIC_HOST, script],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
 
     def start(self, *, threads: int = 244) -> None:
         binary = compile_phi_worker()
-        scp, ssh = _scp_base(), _ssh_base()
         remote_lib = "/tmp/uni_cute_mic_libs"
         remote_bin = f"{self.remote_dir}/phi_worker.mic"
+        self._remote(f"mkdir -p {self.remote_dir}")
         subprocess.run(
-            ssh + [MIC_HOST, f"mkdir -p {self.remote_dir}"],
+            self._scp + [str(binary), f"{MIC_HOST}:{remote_bin}"],
             check=True,
             capture_output=True,
             text=True,
         )
-        subprocess.run(
-            scp + [str(binary), f"{MIC_HOST}:{remote_bin}"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        _deploy_mic_libs(ssh, scp, remote_lib, need_mkl=False)
-        # clear jobs
-        subprocess.run(
-            ssh
-            + [
-                MIC_HOST,
-                f"rm -f {self.remote_dir}/job.go {self.remote_dir}/job.cmd "
-                f"{self.remote_dir}/job.status {self.remote_dir}/job.log",
-            ],
-            capture_output=True,
-            text=True,
+        _deploy_mic_libs(self._ssh, self._scp, remote_lib, need_mkl=False)
+        self._remote(
+            f"rm -f {self.remote_dir}/job.go {self.remote_dir}/job.cmd "
+            f"{self.remote_dir}/job.status {self.remote_dir}/job.log"
         )
         cmd = (
             f"export LD_LIBRARY_PATH={remote_lib}:$LD_LIBRARY_PATH; "
@@ -110,9 +108,8 @@ class PhiWorker:
             f"export KMP_AFFINITY=balanced,granularity=fine; "
             f"{remote_bin} {self.remote_dir}"
         )
-        # long-lived ssh
         self._proc = subprocess.Popen(
-            ssh + [MIC_HOST, cmd],
+            self._ssh + [MIC_HOST, cmd],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.PIPE,
         )
@@ -136,7 +133,6 @@ class PhiWorker:
                 except Exception:
                     pass
         self._proc = None
-        shutil.rmtree(self._host_ctrl, ignore_errors=True)
 
     def __enter__(self) -> "PhiWorker":
         self.start()
@@ -146,45 +142,24 @@ class PhiWorker:
         self.stop()
 
     def _submit(self, cmd: str, *, timeout: float = 120.0) -> str:
-        scp, ssh = _scp_base(), _ssh_base()
-        # write cmd on host then scp (mic has no host FS for control from host write)
-        cmd_local = self._host_ctrl / "job.cmd"
-        go_local = self._host_ctrl / "job.go"
-        cmd_local.write_text(cmd, encoding="utf-8")
-        go_local.write_text("", encoding="utf-8")
-        # remove old status
-        subprocess.run(
-            ssh
-            + [
-                MIC_HOST,
-                f"rm -f {self.remote_dir}/job.status {self.remote_dir}/job.log",
-            ],
-            capture_output=True,
-            text=True,
+        """Write job via one remote shell (printf) — no scp for control files."""
+        # escape for remote single quotes
+        safe = cmd.replace("'", "'\"'\"'")
+        r = self._remote(
+            f"rm -f {self.remote_dir}/job.status {self.remote_dir}/job.log; "
+            f"printf %s '{safe}' > {self.remote_dir}/job.cmd; "
+            f": > {self.remote_dir}/job.go",
+            timeout=30,
         )
-        subprocess.run(
-            scp + [str(cmd_local), f"{MIC_HOST}:{self.remote_dir}/job.cmd"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-        subprocess.run(
-            scp + [str(go_local), f"{MIC_HOST}:{self.remote_dir}/job.go"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
+        if r.returncode != 0:
+            raise RuntimeError(f"phi control write failed: {r.stderr}")
         t0 = time.time()
         while time.time() - t0 < timeout:
-            chk = subprocess.run(
-                ssh
-                + [
-                    MIC_HOST,
-                    f"test -f {self.remote_dir}/job.status && cat {self.remote_dir}/job.status "
-                    f"&& cat {self.remote_dir}/job.log 2>/dev/null || echo WAIT",
-                ],
-                capture_output=True,
-                text=True,
+            chk = self._remote(
+                f"if [ -f {self.remote_dir}/job.status ]; then "
+                f"cat {self.remote_dir}/job.status; "
+                f"cat {self.remote_dir}/job.log 2>/dev/null; "
+                f"else echo WAIT; fi",
                 timeout=30,
             )
             out = chk.stdout or ""
@@ -192,8 +167,45 @@ class PhiWorker:
                 return out
             if self._proc and self._proc.poll() is not None:
                 raise RuntimeError("phi worker process died")
-            time.sleep(0.01)
+            time.sleep(0.005)
         raise TimeoutError("phi worker job timeout")
+
+    def _put(self, local: Path, remote: str) -> None:
+        """Data plane: scp (fallback ssh cat if scp fails)."""
+        r = subprocess.run(
+            self._scp + [str(local), f"{MIC_HOST}:{remote}"],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if r.returncode != 0:
+            with local.open("rb") as f:
+                data = f.read()
+            p = subprocess.run(
+                self._ssh + [MIC_HOST, f"cat > {remote}"],
+                input=data,
+                capture_output=True,
+                timeout=180,
+            )
+            if p.returncode != 0:
+                raise RuntimeError(f"phi put failed: {r.stderr} / {p.stderr!r}")
+
+    def _get(self, remote: str, local: Path) -> None:
+        r = subprocess.run(
+            self._scp + [f"{MIC_HOST}:{remote}", str(local)],
+            capture_output=True,
+            text=True,
+            timeout=180,
+        )
+        if r.returncode != 0:
+            p = subprocess.run(
+                self._ssh + [MIC_HOST, f"cat {remote}"],
+                capture_output=True,
+                timeout=180,
+            )
+            if p.returncode != 0:
+                raise RuntimeError(f"phi get failed: {r.stderr}")
+            local.write_bytes(p.stdout)
 
     def scale(
         self,
@@ -213,16 +225,15 @@ class PhiWorker:
                 f.write(struct.pack("ii", m, n))
                 f.write(struct.pack("dd", float(alpha), float(beta)))
                 f.write(a.tobytes())
-            scp, ssh = _scp_base(), _ssh_base()
             rin = f"{self.remote_dir}/in.bin"
             rout = f"{self.remote_dir}/out.bin"
-            subprocess.run(scp + [str(inp), f"{MIC_HOST}:{rin}"], check=True, capture_output=True)
+            self._put(inp, rin)
             t0 = time.perf_counter()
             log = self._submit(f"SCALE {rin} {rout}\n", timeout=timeout)
             wall = time.perf_counter() - t0
             if log.startswith("FAIL"):
                 raise RuntimeError(log)
-            subprocess.run(scp + [f"{MIC_HOST}:{rout}", str(outp)], check=True, capture_output=True)
+            self._get(rout, outp)
             with outp.open("rb") as f:
                 mm, nn = struct.unpack("ii", f.read(8))
                 c = np.frombuffer(f.read(mm * nn * 8), dtype=np.float64).copy().reshape(mm, nn)
@@ -238,7 +249,7 @@ class PhiWorker:
                 max_abs_err=err,
                 status="pass" if err < 1e-9 else "fail",
                 stdout=log,
-                compiler="phi-worker",
+                compiler="phi-worker-sshctl",
             )
         finally:
             shutil.rmtree(work, ignore_errors=True)

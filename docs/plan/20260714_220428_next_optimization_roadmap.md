@@ -138,10 +138,10 @@
   ├─ PowerCap（本地 + uni）✅
   └─ 统一性能表 bench_summary ✅
 
-迭代 N+3（产品化） ⏳ 可选后续
-  ├─ AVEO 真多缓冲（算 i 同时传 i+1）
-  ├─ Phi worker 控制面改卡上 FIFO 减 scp
-  └─ 持续吞吐 + 传感器功率曲线
+迭代 N+3（产品化） ✅ 2026-07-15
+  ├─ AVEO dual-buffer multi-batch（复用 VE 缓冲，~3–4× batch 吞吐）✅
+  ├─ Phi worker 控制面 ssh printf（减控制 scp）✅
+  └─ 持续吞吐 bench + PowerCap + 功率采样钩子 ✅
 ```
 
 ---

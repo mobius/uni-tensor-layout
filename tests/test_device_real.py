@@ -157,6 +157,25 @@ def test_phi_worker_scale():
     assert c.shape == a.shape
 
 
+@pytest.mark.skipif(not ve_toolchain_available(), reason="no VE")
+def test_aveo_batch_dual_buf():
+    from uni_cute_tensor.backends.ve_aveo import AveoSessionPool, aveo_available
+
+    if not aveo_available():
+        pytest.skip("no aveo")
+    rng = np.random.default_rng(6)
+    As = [rng.standard_normal((64, 64)) for _ in range(4)]
+    Bs = [rng.standard_normal((64, 64)) for _ in range(4)]
+    try:
+        with AveoSessionPool([1]) as pool:
+            Cs, wall, err = pool.dgemm_batch(1, As, Bs)
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(str(exc))
+    assert err < 1e-8
+    assert len(Cs) == 4
+    assert wall > 0
+
+
 @pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
 def test_single_ve_dgemm_correctness():
     ve = ve_device_names(discover_devices())

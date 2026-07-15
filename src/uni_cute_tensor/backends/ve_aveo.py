@@ -164,6 +164,18 @@ def _load_host_lib() -> ctypes.CDLL:
         ctypes.POINTER(ctypes.c_double),
     ]
     lib.aveo_session_dgemm_async.restype = ctypes.c_int
+    lib.aveo_session_dgemm_batch.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_void_p),
+        ctypes.POINTER(ctypes.c_double),
+    ]
+    lib.aveo_session_dgemm_batch.restype = ctypes.c_int
     lib.aveo_session_close.argtypes = [ctypes.c_void_p]
     lib.aveo_session_close.restype = None
     return lib
@@ -307,6 +319,57 @@ class AveoSessionPool:
             lib=self._lib,
             async_phases=async_phases,
         )
+
+    def dgemm_batch(
+        self,
+        ve_node: int,
+        batches_a: Sequence[np.ndarray],
+        batches_b: Sequence[np.ndarray],
+    ) -> tuple[list[np.ndarray], float, float]:
+        """Multi-batch on one VE with dual VE buffers. Returns Cs, wall, max_err."""
+        if not batches_a or len(batches_a) != len(batches_b):
+            raise ValueError("batch length mismatch")
+        lib = self._lib
+        assert lib is not None
+        nbatch = len(batches_a)
+        m, k = batches_a[0].shape
+        n = batches_b[0].shape[1]
+        As = []
+        Bs = []
+        Cs = []
+        a_ptrs = (ctypes.c_void_p * nbatch)()
+        b_ptrs = (ctypes.c_void_p * nbatch)()
+        c_ptrs = (ctypes.c_void_p * nbatch)()
+        for i in range(nbatch):
+            a = np.ascontiguousarray(batches_a[i], dtype=np.float64)
+            b = np.ascontiguousarray(batches_b[i], dtype=np.float64)
+            c = np.empty((m, n), dtype=np.float64)
+            As.append(a)
+            Bs.append(b)
+            Cs.append(c)
+            a_ptrs[i] = a.ctypes.data
+            b_ptrs[i] = b.ctypes.data
+            c_ptrs[i] = c.ctypes.data
+        elapsed = ctypes.c_double(0.0)
+        t0 = time.perf_counter()
+        rc = lib.aveo_session_dgemm_batch(
+            self._sessions[ve_node],
+            nbatch,
+            m,
+            n,
+            k,
+            a_ptrs,
+            b_ptrs,
+            c_ptrs,
+            ctypes.byref(elapsed),
+        )
+        wall = time.perf_counter() - t0
+        if rc != 0:
+            raise RuntimeError(f"aveo_session_dgemm_batch rc={rc}")
+        max_err = 0.0
+        for a, b, c in zip(As, Bs, Cs):
+            max_err = max(max_err, float(np.max(np.abs(c - a @ b))))
+        return Cs, wall, max_err
 
 
 def multi_ve_aveo_dgemm(
