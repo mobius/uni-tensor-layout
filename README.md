@@ -16,18 +16,20 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v0.6.0** — full stack + AVEO dual-buffer batches + sustained multi-VE + PowerCap.
+**v0.7.0** — Phase 2 **M1**: unified **DataPlane** + AVEO **pinned** buffers + **Timeline** JSONL + auto perf-gate docs.
 
 ### Real hardware (this machine class)
 
 | Test | Result (example) |
 |------|------------------|
-| multi-VE pool wall @1024³ | **~0.035 s** |
+| multi-VE pool wall @1024³ | **~0.034 s** |
+| AVEO pinned 16×512 vs session | **~258 vs ~206 batch/s** (~**1.25×**) |
+| DataPlane `aveo_pinned` @512³ | wall **~0.008 s** (pass) |
 | AVEO dual-buf 8×1024 | **~137 batch/s** (~3× vs loop-async) |
 | Sustained 3×VE 512³ | **~66 jobs/s** (10s, PowerCap on) |
-| Phi MKL @1024 | ~**630 GFLOPS** |
-| Host OpenBLAS @2048 | ~**480 GFLOPS** |
-| Summary | `python scripts/bench_summary.py` |
+| Phi MKL @1024 | ~**626 GFLOPS** |
+| Host OpenBLAS @2048 | ~**500 GFLOPS** |
+| Summary + gate | `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md` |
 
 Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC probe (file is never committed).
 
@@ -76,12 +78,15 @@ src/uni_cute_tensor/
   atoms/          # HOST_AVX512, PHI_KNC, VE_NLC atoms
   partition/      # multi-device PlacementPlan
   bridge/         # uni-framework adapter
-  backends/       # host reference GEMM
+  backends/       # host / Phi / VE / AVEO GEMM
+  runtime/        # DataPlane + Timeline (Phase 2)
 docs/
   research|plan|impl|architecture/   # timestamped process docs
   glossary.md
 scripts/check_hw.sh
 scripts/audit_sensitive.sh
+scripts/bench_summary.py
+scripts/bench_dataplane.py
 ```
 
 ## Documentation

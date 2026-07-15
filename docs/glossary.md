@@ -235,9 +235,22 @@ Knights Corner 的 ELF 机器类型（Intel K1OM）。MPSS 提供 `k1om-mpss-lin
 
 NEC **Vector Engine Offloading**：Host 通过 `libveo` 在 VE 上 `alloc/write/call/read`，无需为每次 kernel `ve_exec` 拉起进程并依赖文件。本仓库 `backends/ve_aveo.py` 封装 NLC DGEMM 卸载。节点号与 `ve_exec -N` 一致（1–3）。
 
+### DataPlane
+
+统一 GEMM 数据面抽象：`create_dataplane(backend)` 返回可 `open`/`gemm`/`close` 的平面，后端 `host` \| `file` \| `worker` \| `aveo` \| `aveo_pinned`。应用代码不直接依赖具体传输路径。见 `runtime/dataplane.py`。
+
+### Pinned buffer（AVEO 驻留缓冲）
+
+在 AVEO session 内预先 `veo_alloc_mem` 足够大的 A/B/C 缓冲，后续多次 GEMM 只 `write`/`call`/`read`，避免每调用 alloc/free。`aveo_session_pin` + `aveo_session_dgemm_pinned`。
+
+### Timeline（JSONL）
+
+运行时可观测事件流：`phase` ∈ h2d \| kernel \| d2h \| wait \| host \| other，字段含 `duration_sec`、`device`、`job_id`。`Timeline.write_jsonl` / `summary()`。DataPlane 热路径通过 `timeline_scope` 记录。
+
 ## 文档维护日志
 
 | 日期 | 变更 |
 |------|------|
 | 2026-07-14 | 初版：覆盖 tensor-layouts / uni / 本机硬件相关词条 |
 | 2026-07-14 | 追加 ve_exec、Staging、micnativeloadex（实机测试相关） |
+| 2026-07-14 | 追加 DataPlane、Pinned buffer、Timeline（Phase 2 M1） |

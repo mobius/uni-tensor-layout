@@ -114,6 +114,9 @@ struct aveo_session {
     uint64_t libh;
     uint64_t sym;
     int node;
+    /* resident (pinned capacity) VE buffers */
+    uint64_t pin_a, pin_b, pin_c;
+    size_t cap_a, cap_b, cap_c;
 };
 
 EXPORT struct aveo_session *aveo_session_open(int node, const char *ve_lib_path)
@@ -141,7 +144,75 @@ EXPORT struct aveo_session *aveo_session_open(int node, const char *ve_lib_path)
         return NULL;
     }
     s->ctx = veo_context_open(s->proc); /* optional async path */
+    s->pin_a = s->pin_b = s->pin_c = 0;
+    s->cap_a = s->cap_b = s->cap_c = 0;
     return s;
+}
+
+/* Pre-allocate VE buffers for max M,N,K; subsequent pinned gemms skip alloc/free */
+EXPORT int aveo_session_pin(struct aveo_session *s, int max_m, int max_n, int max_k)
+{
+    if (!s || !s->proc || max_m <= 0 || max_n <= 0 || max_k <= 0)
+        return -1;
+    /* free previous */
+    if (s->pin_a)
+        veo_free_mem(s->proc, s->pin_a);
+    if (s->pin_b)
+        veo_free_mem(s->proc, s->pin_b);
+    if (s->pin_c)
+        veo_free_mem(s->proc, s->pin_c);
+    s->pin_a = s->pin_b = s->pin_c = 0;
+    s->cap_a = (size_t)max_m * (size_t)max_k * sizeof(double);
+    s->cap_b = (size_t)max_k * (size_t)max_n * sizeof(double);
+    s->cap_c = (size_t)max_m * (size_t)max_n * sizeof(double);
+    if (veo_alloc_mem(s->proc, &s->pin_a, s->cap_a) ||
+        veo_alloc_mem(s->proc, &s->pin_b, s->cap_b) ||
+        veo_alloc_mem(s->proc, &s->pin_c, s->cap_c)) {
+        if (s->pin_a)
+            veo_free_mem(s->proc, s->pin_a);
+        if (s->pin_b)
+            veo_free_mem(s->proc, s->pin_b);
+        if (s->pin_c)
+            veo_free_mem(s->proc, s->pin_c);
+        s->pin_a = s->pin_b = s->pin_c = 0;
+        s->cap_a = s->cap_b = s->cap_c = 0;
+        return -2;
+    }
+    return 0;
+}
+
+/* GEMM using pre-pinned buffers (M,N,K must fit capacities) */
+EXPORT int aveo_session_dgemm_pinned(struct aveo_session *s, int M, int N, int K,
+                                     const double *A, const double *B, double *C,
+                                     double *elapsed_out)
+{
+    if (!s || !s->proc || !s->pin_a || !s->pin_b || !s->pin_c)
+        return -1;
+    size_t a_bytes = (size_t)M * K * sizeof(double);
+    size_t b_bytes = (size_t)K * N * sizeof(double);
+    size_t c_bytes = (size_t)M * N * sizeof(double);
+    if (a_bytes > s->cap_a || b_bytes > s->cap_b || c_bytes > s->cap_c)
+        return -2;
+    if (veo_write_mem(s->proc, s->pin_a, A, a_bytes) ||
+        veo_write_mem(s->proc, s->pin_b, B, b_bytes))
+        return -3;
+    struct veo_args *arg = veo_args_alloc();
+    veo_args_set_u64(arg, 0, s->pin_a);
+    veo_args_set_u64(arg, 1, s->pin_b);
+    veo_args_set_u64(arg, 2, s->pin_c);
+    veo_args_set_i64(arg, 3, M);
+    veo_args_set_i64(arg, 4, N);
+    veo_args_set_i64(arg, 5, K);
+    double t0 = tnow();
+    uint64_t retval = 0;
+    int rc = veo_call_sync(s->proc, s->sym, arg, &retval);
+    double el = tnow() - t0;
+    if (elapsed_out)
+        *elapsed_out = el;
+    if (rc == 0)
+        veo_read_mem(s->proc, C, s->pin_c, c_bytes);
+    veo_args_free(arg);
+    return rc == 0 ? 0 : -4;
 }
 
 EXPORT int aveo_session_dgemm(struct aveo_session *s, int M, int N, int K,
@@ -357,6 +428,12 @@ EXPORT void aveo_session_close(struct aveo_session *s)
     if (!s)
         return;
     if (s->proc) {
+        if (s->pin_a)
+            veo_free_mem(s->proc, s->pin_a);
+        if (s->pin_b)
+            veo_free_mem(s->proc, s->pin_b);
+        if (s->pin_c)
+            veo_free_mem(s->proc, s->pin_c);
         if (s->ctx)
             veo_context_close(s->ctx);
         if (s->libh)

@@ -3,7 +3,7 @@
 > 文档时间: 2026-07-14 22:32:06  
 > 基线: **v0.6.0** (`3270f73`)  
 > 前序计划: `docs/plan/20260714_220428_next_optimization_roadmap.md`（N+1～N+3 **已完成**）  
-> 状态: **规划中（待实施）**
+> 状态: **M1 已完成（v0.7.0）**；M2/M3 待实施
 
 ---
 
@@ -100,14 +100,15 @@
 
 ## 4. 迭代切片（建议 3 个里程碑）
 
-### M1 — 数据面与观测（约 1 迭代）
+### M1 — 数据面与观测（约 1 迭代） — **DONE v0.7.0**
 
-1. W1.1 驻留缓冲 + W1.4 DataPlane 抽象雏形  
-2. W4.1 timeline JSONL  
-3. `bench_summary` → 自动写 `docs/impl/<ts>_perf_gate.md`  
-4. 不破现有正确性测试  
+1. ~~W1.1 驻留缓冲 + W1.4 DataPlane 抽象雏形~~  
+2. ~~W4.1 timeline JSONL~~  
+3. ~~`bench_summary` → 自动写 `docs/impl/<ts>_perf_gate.md`~~  
+4. ~~不破现有正确性测试~~  
 
-**出口**: multi-batch AVEO 与 file-pool 有 apples-to-apples 对比表；API 草案 v0.1。
+**出口**: multi-batch AVEO 与 file-pool 有 apples-to-apples 对比表；API 草案 v0.1。  
+**实现纪要**: `docs/impl/20260714_223900_m1_dataplane_aveo_pinned.md`；gate `docs/impl/20260714_223845_perf_gate.md`。
 
 ### M2 — Layout + 真应用（约 1 迭代）
 
@@ -189,4 +190,13 @@
 2. 同步写 `docs/impl/<ts>_m1_*`  
 3. 每完成里程碑更新本文件进度表（追加「进度」节，不删历史）  
 
-**当前状态**: 规划已建立，**尚未开始写 M1 代码**（等你确认或继续说 go）。
+**当前状态**: **M1 完成（v0.7.0）**。下一入口 **M2**（Layout 自动放置 + 真应用）。
+
+---
+
+## 11. 进度日志
+
+| 日期 | 里程碑 | 摘要 |
+|------|--------|------|
+| 2026-07-14 | 规划 | Phase 2 路线图建立 |
+| 2026-07-14 | **M1** | DataPlane + AVEO pin + Timeline + perf_gate；pinned@512 multi-batch ~**1.25×** session；device 15 pass |

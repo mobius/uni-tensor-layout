@@ -176,6 +176,24 @@ def _load_host_lib() -> ctypes.CDLL:
         ctypes.POINTER(ctypes.c_double),
     ]
     lib.aveo_session_dgemm_batch.restype = ctypes.c_int
+    lib.aveo_session_pin.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+    ]
+    lib.aveo_session_pin.restype = ctypes.c_int
+    lib.aveo_session_dgemm_pinned.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+    ]
+    lib.aveo_session_dgemm_pinned.restype = ctypes.c_int
     lib.aveo_session_close.argtypes = [ctypes.c_void_p]
     lib.aveo_session_close.restype = None
     return lib
@@ -303,6 +321,13 @@ class AveoSessionPool:
     def __exit__(self, *args) -> None:
         self.stop()
 
+    def pin_all(self, max_m: int, max_n: int, max_k: int) -> None:
+        assert self._lib is not None
+        for node, sess in self._sessions.items():
+            rc = self._lib.aveo_session_pin(sess, max_m, max_n, max_k)
+            if rc != 0:
+                raise RuntimeError(f"aveo_session_pin({node}) rc={rc}")
+
     def dgemm(
         self,
         ve_node: int,
@@ -318,6 +343,45 @@ class AveoSessionPool:
             session=self._sessions[ve_node],
             lib=self._lib,
             async_phases=async_phases,
+        )
+
+    def dgemm_pinned(
+        self, ve_node: int, a: np.ndarray, b: np.ndarray
+    ) -> tuple[np.ndarray, AveoRunResult]:
+        """GEMM using pre-pinned VE buffers (no alloc/free per call)."""
+        assert self._lib is not None
+        a = np.ascontiguousarray(a, dtype=np.float64)
+        b = np.ascontiguousarray(b, dtype=np.float64)
+        m, k = a.shape
+        n = b.shape[1]
+        c = np.empty((m, n), dtype=np.float64)
+        elapsed = ctypes.c_double(0.0)
+        t0 = time.perf_counter()
+        rc = self._lib.aveo_session_dgemm_pinned(
+            self._sessions[ve_node],
+            m,
+            n,
+            k,
+            a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            b.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(elapsed),
+        )
+        wall = time.perf_counter() - t0
+        el = float(elapsed.value) if elapsed.value > 0 else wall
+        err = float(np.max(np.abs(c - a @ b)))
+        gflops = 2.0 * m * n * k / el / 1e9 if el > 0 else 0.0
+        return c, AveoRunResult(
+            device=f"ve{ve_node}",
+            ve_id=ve_node,
+            m=m,
+            n=n,
+            k=k,
+            gflops=gflops,
+            elapsed_sec=el,
+            max_abs_err=err,
+            status="pass" if rc == 0 and err < 1e-8 else "fail",
+            mode="aveo-pinned",
         )
 
     def dgemm_batch(
