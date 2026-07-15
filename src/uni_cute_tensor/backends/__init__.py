@@ -1,6 +1,10 @@
 """Backends: host reference, real VE NLC DGEMM, Phi dgemm/smoke."""
 
-from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
+from uni_cute_tensor.backends.host_dgemm import (
+    host_avx512_dgemm,
+    host_blocked_dgemm,
+    host_numpy_dgemm,
+)
 from uni_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
 from uni_cute_tensor.backends.phi_dgemm import (
     compile_phi_dgemm,
@@ -20,6 +24,7 @@ __all__ = [
     "host_sharded_dgemm",
     "host_numpy_dgemm",
     "host_blocked_dgemm",
+    "host_avx512_dgemm",
     "compile_ve_dgemm",
     "run_ve_dgemm_shard",
     "multi_ve_layout_dgemm",

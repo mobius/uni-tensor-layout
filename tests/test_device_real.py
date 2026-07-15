@@ -5,7 +5,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm
+from uni_cute_tensor.backends.host_dgemm import host_avx512_dgemm, host_blocked_dgemm
 from uni_cute_tensor.backends.phi_dgemm import run_phi_dgemm
 from uni_cute_tensor.backends.phi_smoke import phi_device_present, run_phi_peak_smoke
 from uni_cute_tensor.backends.ve_dgemm import (
@@ -26,6 +26,29 @@ def test_host_blocked_atom_tile():
     _, res = host_blocked_dgemm(a, b)
     assert res.status == "pass"
     assert res.max_abs_err < 1e-9
+
+
+def test_host_avx512_dgemm():
+    rng = np.random.default_rng(9)
+    a = rng.standard_normal((96, 80))
+    b = rng.standard_normal((80, 64))
+    _, res = host_avx512_dgemm(a, b, threads=8)
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-8
+
+
+@pytest.mark.skipif(not phi_device_present(), reason="no /dev/mic0")
+def test_phi_mkl_dgemm_correctness():
+    rng = np.random.default_rng(12)
+    a = rng.standard_normal((128, 96))
+    b = rng.standard_normal((96, 80))
+    try:
+        c, res = run_phi_dgemm(a, b, threads=120, backend="mkl")
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(f"mkl backend unavailable: {exc}")
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-6
+    assert c.shape == (128, 80)
 
 
 @pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")

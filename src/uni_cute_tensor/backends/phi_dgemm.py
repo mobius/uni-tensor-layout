@@ -1,8 +1,6 @@
-"""Real Xeon Phi DGEMM backend via k1om-gcc (or ICC if Comp-CL available).
+"""Real Xeon Phi DGEMM: MKL (preferred), IMCI OpenMP, or k1om-gcc fallback.
 
-I/O model: host stages binaries/data with scp to mic0, runs over ssh, scp
-results back. micnativeloadex does not expose host filesystem paths to the
-card process for fopen().
+I/O: scp binary/data to mic0, ssh run, scp results back.
 """
 
 from __future__ import annotations
@@ -20,9 +18,12 @@ from typing import Optional
 
 import numpy as np
 
-_KERNEL_SRC = Path(__file__).resolve().parents[1] / "kernels" / "phi" / "dgemm_rect.c"
+_KERNEL_DIR = Path(__file__).resolve().parents[1] / "kernels" / "phi"
+_SRC_IMCI = _KERNEL_DIR / "dgemm_rect.c"
+_SRC_MKL = _KERNEL_DIR / "dgemm_mkl.c"
 _BUILD_DIR = Path(__file__).resolve().parents[3] / "build" / "phi"
-_KERNEL_BIN = _BUILD_DIR / "dgemm_rect.mic"
+_BIN_IMCI = _BUILD_DIR / "dgemm_rect.mic"
+_BIN_MKL = _BUILD_DIR / "dgemm_mkl.mic"
 
 DEFAULT_CONTAINER = os.environ.get("PHI_PODMAN_CONTAINER", "centos7-phi-dev")
 DEFAULT_LICENSE = Path(
@@ -32,6 +33,15 @@ DEFAULT_LICENSE = Path(
     ).split(":")[0]
 )
 MIC_HOST = os.environ.get("PHI_SSH_HOST", "mic0")
+MIC_LIBS_HOST = Path(
+    os.environ.get(
+        "PHI_MIC_LIBS",
+        str(Path.home() / "Work" / "intel_phi" / "icc_mic_libs"),
+    )
+)
+MKL_ROOT_DEFAULT = (
+    "/opt/intel/compilers_and_libraries_2016.0.109/linux/mkl"
+)
 
 
 @dataclass
@@ -87,7 +97,6 @@ def _scp_base() -> list[str]:
 
 
 def _ensure_license_in_container(container: str, license_path: Path) -> None:
-    """Copy host license into container (never log file contents)."""
     if not license_path.is_file():
         return
     subprocess.run(
@@ -117,7 +126,6 @@ def _ensure_license_in_container(container: str, license_path: Path) -> None:
 
 
 def try_icc_license(container: str = DEFAULT_CONTAINER) -> dict:
-    """Probe whether ICC can check out a license. Returns status dict (no secrets)."""
     if not _podman_available():
         return {"ok": False, "reason": "podman missing"}
     _ensure_license_in_container(container, DEFAULT_LICENSE)
@@ -127,10 +135,7 @@ export INTEL_LICENSE_FILE=/opt/intel/licenses/parallel_studio.lic
 echo 'int main(){return 0;}' > /tmp/licprobe.c
 icc -std=c99 -mmic -O0 -o /tmp/licprobe.mic /tmp/licprobe.c >/tmp/licprobe.err 2>&1
 rc=$?
-if [ $rc -eq 0 ]; then
-  echo ICC_LICENSE_OK
-else
-  echo ICC_LICENSE_FAIL
+if [ $rc -eq 0 ]; then echo ICC_LICENSE_OK; else echo ICC_LICENSE_FAIL
   sed -E 's/[0-9A-Fa-f]{10,}/<hex>/g' /tmp/licprobe.err | head -20
 fi
 """
@@ -141,51 +146,50 @@ fi
         timeout=120,
     )
     out = (r.stdout or "") + (r.stderr or "")
-    ok = "ICC_LICENSE_OK" in out
     return {
-        "ok": ok,
+        "ok": "ICC_LICENSE_OK" in out,
         "feature_requested": "Comp-CL",
         "license_path_used": str(DEFAULT_LICENSE) if DEFAULT_LICENSE.is_file() else "missing",
         "log_excerpt": "\n".join(out.splitlines()[:12]),
     }
 
 
-def compile_phi_dgemm(
+def _uptodate(bin_path: Path, src: Path) -> bool:
+    return bin_path.is_file() and bin_path.stat().st_mtime >= src.stat().st_mtime
+
+
+def compile_phi_dgemm_imci(
     *,
     force: bool = False,
     prefer_icc: bool = True,
     container: str = DEFAULT_CONTAINER,
 ) -> tuple[Path, str]:
-    """Compile dgemm_rect.mic. Returns (binary_path, compiler_tag)."""
-    if not _KERNEL_SRC.is_file():
-        raise FileNotFoundError(_KERNEL_SRC)
+    """Compile IMCI OpenMP dgemm_rect.mic."""
+    if not _SRC_IMCI.is_file():
+        raise FileNotFoundError(_SRC_IMCI)
     _BUILD_DIR.mkdir(parents=True, exist_ok=True)
-    if _KERNEL_BIN.is_file() and not force:
-        if _KERNEL_BIN.stat().st_mtime >= _KERNEL_SRC.stat().st_mtime:
-            tag = "cached"
-            meta = _BUILD_DIR / "compiler.txt"
-            if meta.is_file():
-                tag = meta.read_text(encoding="utf-8").strip() or tag
-            return _KERNEL_BIN, tag
+    if _uptodate(_BIN_IMCI, _SRC_IMCI) and not force:
+        tag = "cached"
+        meta = _BUILD_DIR / "compiler_imci.txt"
+        if meta.is_file():
+            tag = meta.read_text(encoding="utf-8").strip() or tag
+        return _BIN_IMCI, tag
 
     if not _podman_available():
         raise RuntimeError("podman required to compile Phi kernels")
 
     subprocess.run(
-        ["podman", "cp", str(_KERNEL_SRC), f"{container}:/tmp/dgemm_rect.c"],
+        ["podman", "cp", str(_SRC_IMCI), f"{container}:/tmp/dgemm_rect.c"],
         check=True,
         capture_output=True,
         text=True,
     )
 
     compiler = "k1om-gcc"
-    if prefer_icc:
-        probe = try_icc_license(container)
-        if probe.get("ok"):
-            compiler = "icc-mmic"
+    if prefer_icc and try_icc_license(container).get("ok"):
+        compiler = "icc-mmic"
 
     if compiler == "icc-mmic":
-        # OpenMP + IMCI path; -restrict matches intel_phi peak_dgemm flags
         script = r"""
 set -e
 source /opt/intel/bin/compilervars.sh intel64
@@ -195,11 +199,10 @@ icc -std=c99 -mmic -O3 -openmp -restrict -o /tmp/dgemm_rect.mic /tmp/dgemm_rect.
     else:
         script = r"""
 set -e
-export PATH=/opt/mpss/3.8.6/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux:/opt/mpss/3.8.6/sysroots/x86_64-mpsssdk-linux/usr/bin:$PATH
+export PATH=/opt/mpss/3.8.6/sysroots/x86_64-mpsssdk-linux/usr/bin/k1om-mpss-linux:$PATH
 SYSROOT=/opt/mpss/3.8.6/sysroots/k1om-mpss-linux
 k1om-mpss-linux-gcc --sysroot=$SYSROOT -O3 -pthread -o /tmp/dgemm_rect.mic /tmp/dgemm_rect.c
 """
-
     r = subprocess.run(
         ["podman", "exec", container, "bash", "-lc", script],
         capture_output=True,
@@ -207,16 +210,101 @@ k1om-mpss-linux-gcc --sysroot=$SYSROOT -O3 -pthread -o /tmp/dgemm_rect.mic /tmp/
         timeout=180,
     )
     if r.returncode != 0:
-        raise RuntimeError(f"Phi compile failed ({compiler}):\n{r.stderr}\n{r.stdout}")
+        raise RuntimeError(f"Phi IMCI compile failed ({compiler}):\n{r.stderr}\n{r.stdout}")
 
     subprocess.run(
-        ["podman", "cp", f"{container}:/tmp/dgemm_rect.mic", str(_KERNEL_BIN)],
+        ["podman", "cp", f"{container}:/tmp/dgemm_rect.mic", str(_BIN_IMCI)],
         check=True,
         capture_output=True,
         text=True,
     )
-    (_BUILD_DIR / "compiler.txt").write_text(compiler + "\n", encoding="utf-8")
-    return _KERNEL_BIN, compiler
+    (_BUILD_DIR / "compiler_imci.txt").write_text(compiler + "\n", encoding="utf-8")
+    return _BIN_IMCI, compiler
+
+
+def compile_phi_dgemm_mkl(
+    *,
+    force: bool = False,
+    container: str = DEFAULT_CONTAINER,
+) -> tuple[Path, str]:
+    """Compile MKL-native dgemm_mkl.mic (requires ICC + MKL mic libs)."""
+    if not _SRC_MKL.is_file():
+        raise FileNotFoundError(_SRC_MKL)
+    _BUILD_DIR.mkdir(parents=True, exist_ok=True)
+    if _uptodate(_BIN_MKL, _SRC_MKL) and not force:
+        return _BIN_MKL, "icc-mkl-cached"
+
+    if not try_icc_license(container).get("ok"):
+        raise RuntimeError("ICC license required for MKL MIC build")
+
+    subprocess.run(
+        ["podman", "cp", str(_SRC_MKL), f"{container}:/tmp/dgemm_mkl.c"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    mkl = os.environ.get("MKLROOT", MKL_ROOT_DEFAULT)
+    script = f"""
+set -e
+source /opt/intel/bin/compilervars.sh intel64
+export INTEL_LICENSE_FILE=/opt/intel/licenses/parallel_studio.lic
+MKL="{mkl}"
+if [ ! -f "$MKL/include/mkl.h" ]; then
+  MKL=/opt/intel/compilers_and_libraries_2016.0.109/linux/mkl
+fi
+icc -std=c99 -mmic -O3 -openmp -I"$MKL/include" -o /tmp/dgemm_mkl.mic /tmp/dgemm_mkl.c \\
+  -L"$MKL/lib/mic" -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm
+"""
+    r = subprocess.run(
+        ["podman", "exec", container, "bash", "-lc", script],
+        capture_output=True,
+        text=True,
+        timeout=180,
+    )
+    if r.returncode != 0:
+        raise RuntimeError(f"Phi MKL compile failed:\n{r.stderr}\n{r.stdout}")
+
+    subprocess.run(
+        ["podman", "cp", f"{container}:/tmp/dgemm_mkl.mic", str(_BIN_MKL)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    (_BUILD_DIR / "compiler_mkl.txt").write_text("icc-mkl\n", encoding="utf-8")
+    return _BIN_MKL, "icc-mkl"
+
+
+def compile_phi_dgemm(
+    *,
+    force: bool = False,
+    prefer_icc: bool = True,
+    backend: str = "auto",
+    container: str = DEFAULT_CONTAINER,
+) -> tuple[Path, str]:
+    """Compile preferred Phi DGEMM binary.
+
+    backend: auto | mkl | imci
+      auto prefers MKL when ICC+license available, else IMCI/k1om.
+    """
+    backend = backend.lower()
+    if backend == "auto":
+        if prefer_icc and try_icc_license(container).get("ok"):
+            try:
+                return compile_phi_dgemm_mkl(force=force, container=container)
+            except Exception:
+                return compile_phi_dgemm_imci(
+                    force=force, prefer_icc=True, container=container
+                )
+        return compile_phi_dgemm_imci(
+            force=force, prefer_icc=prefer_icc, container=container
+        )
+    if backend == "mkl":
+        return compile_phi_dgemm_mkl(force=force, container=container)
+    if backend in ("imci", "rect"):
+        return compile_phi_dgemm_imci(
+            force=force, prefer_icc=prefer_icc, container=container
+        )
+    raise ValueError(f"unknown backend: {backend}")
 
 
 def _write_input(path: Path, a: np.ndarray, b: np.ndarray) -> None:
@@ -252,20 +340,61 @@ def _parse_checksum(text: str) -> float:
     return float(m.group(1)) if m else float("nan")
 
 
+def _deploy_mic_libs(ssh: list[str], scp: list[str], remote_libdir: str, need_mkl: bool) -> None:
+    subprocess.run(
+        ssh + [MIC_HOST, f"mkdir -p {remote_libdir}"],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    names = ["libiomp5.so", "libintlc.so.5", "libimf.so", "libsvml.so"]
+    if need_mkl:
+        names += [
+            "libmkl_intel_lp64.so",
+            "libmkl_intel_thread.so",
+            "libmkl_core.so",
+            "libmkl_sequential.so",
+        ]
+    for name in names:
+        src = MIC_LIBS_HOST / name
+        if not src.is_file():
+            continue
+        # skip re-upload if present with same size (cheap check)
+        remote = f"{remote_libdir}/{name}"
+        chk = subprocess.run(
+            ssh + [MIC_HOST, f"test -s {remote} && echo yes || echo no"],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if "yes" in (chk.stdout or ""):
+            continue
+        subprocess.run(
+            scp + [str(src), f"{MIC_HOST}:{remote}"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            check=False,
+        )
+
+
 def run_phi_dgemm(
     a: np.ndarray,
     b: np.ndarray,
     *,
     work_dir: Optional[Path] = None,
-    threads: int = 120,
+    threads: int = 244,
     timeout: float = 300.0,
     force_recompile: bool = False,
+    backend: str = "auto",
 ) -> tuple[np.ndarray, PhiDgemmResult]:
     """Execute C = A @ B on mic0; verify against host numpy."""
     if not phi_device_present():
         raise RuntimeError("no /dev/mic0")
 
-    binary, compiler = compile_phi_dgemm(force=force_recompile)
+    binary, compiler = compile_phi_dgemm(force=force_recompile, backend=backend)
+    need_mkl = "mkl" in compiler or binary.name.startswith("dgemm_mkl")
     m, k = a.shape
     n = b.shape[1]
 
@@ -277,7 +406,7 @@ def run_phi_dgemm(
     out_path = work_dir / "out.bin"
     _write_input(in_path, a, b)
 
-    remote_bin = "/tmp/uni_cute_dgemm_rect.mic"
+    remote_bin = f"/tmp/uni_cute_{binary.name}"
     remote_in = "/tmp/uni_cute_phi_in.bin"
     remote_out = "/tmp/uni_cute_phi_out.bin"
     remote_libdir = "/tmp/uni_cute_mic_libs"
@@ -285,7 +414,6 @@ def run_phi_dgemm(
     scp = _scp_base()
     ssh = _ssh_base()
 
-    # deploy binary + input
     r1 = subprocess.run(
         scp + [str(binary), f"{MIC_HOST}:{remote_bin}"],
         capture_output=True,
@@ -298,32 +426,17 @@ def run_phi_dgemm(
         scp + [str(in_path), f"{MIC_HOST}:{remote_in}"],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=180,
     )
     if r2.returncode != 0:
         raise RuntimeError(f"scp input failed: {r2.stderr}")
 
-    # OpenMP runtime for ICC -openmp MIC binaries (ssh path has no SINK_LD_*)
-    mic_libs = Path.home() / "Work" / "intel_phi" / "icc_mic_libs"
-    iomp = mic_libs / "libiomp5.so"
-    if iomp.is_file():
-        subprocess.run(
-            ssh + [MIC_HOST, f"mkdir -p {remote_libdir}"],
-            capture_output=True,
-            text=True,
-            timeout=30,
-        )
-        subprocess.run(
-            scp + [str(iomp), f"{MIC_HOST}:{remote_libdir}/libiomp5.so"],
-            capture_output=True,
-            text=True,
-            timeout=60,
-        )
+    _deploy_mic_libs(ssh, scp, remote_libdir, need_mkl=need_mkl)
 
-    # OMP_NUM_THREADS for ICC OpenMP build; PHI_DGEMM_THREADS also read by kernel
     remote_cmd = (
         f"export LD_LIBRARY_PATH={remote_libdir}:$LD_LIBRARY_PATH; "
         f"export OMP_NUM_THREADS={int(threads)}; "
+        f"export MKL_NUM_THREADS={int(threads)}; "
         f"export PHI_DGEMM_THREADS={int(threads)}; "
         f"export KMP_AFFINITY=balanced,granularity=fine; "
         f"{remote_bin} {remote_in} {remote_out}"
@@ -347,7 +460,7 @@ def run_phi_dgemm(
         scp + [f"{MIC_HOST}:{remote_out}", str(out_path)],
         capture_output=True,
         text=True,
-        timeout=120,
+        timeout=180,
     )
     if r4.returncode != 0 or not out_path.is_file():
         if own:

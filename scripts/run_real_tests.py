@@ -20,7 +20,11 @@ sys.path.insert(0, str(ROOT / "src"))
 
 import numpy as np
 
-from uni_cute_tensor.backends.host_dgemm import host_blocked_dgemm, host_numpy_dgemm
+from uni_cute_tensor.backends.host_dgemm import (
+    host_avx512_dgemm,
+    host_blocked_dgemm,
+    host_numpy_dgemm,
+)
 from uni_cute_tensor.backends.phi_dgemm import run_phi_dgemm, try_icc_license
 from uni_cute_tensor.backends.phi_smoke import run_phi_peak_smoke
 from uni_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm, ve_toolchain_available
@@ -73,6 +77,20 @@ def main() -> int:
     if host_blk.status != "pass":
         failed += 1
 
+    print("\n=== host AVX-512 OpenMP dgemm ===")
+    try:
+        _, host_avx = host_avx512_dgemm(a, b)
+        print(
+            f"  status={host_avx.status}  err={host_avx.max_abs_err:.3e}  "
+            f"{host_avx.elapsed_sec:.4f}s  {host_avx.gflops:.2f} GFLOPS"
+        )
+        report["cases"]["host_avx512"] = host_avx.__dict__
+        if host_avx.status != "pass":
+            failed += 1
+    except Exception as exc:  # noqa: BLE001
+        print(f"  SKIP/FAIL: {exc}")
+        report["cases"]["host_avx512"] = {"status": "fail", "error": str(exc)[:200]}
+        failed += 1
     if not args.skip_ve:
         print("\n=== multi-VE layout NLC dgemm ===")
         if not ve_toolchain_available():
@@ -160,7 +178,7 @@ def main() -> int:
             bp = np.ascontiguousarray(
                 rng.standard_normal((args.phi_k, args.phi_n), dtype=np.float64)
             )
-            _, phi_dg = run_phi_dgemm(ap, bp, threads=120)
+            _, phi_dg = run_phi_dgemm(ap, bp, threads=244, backend="auto")
             print(
                 f"  status={phi_dg.status}  compiler={phi_dg.compiler}  "
                 f"err={phi_dg.max_abs_err:.3e}  kernel={phi_dg.gflops:.2f} GFLOPS  "

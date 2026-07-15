@@ -1,13 +1,21 @@
-"""Host DGEMM paths: numpy reference and optional blocked OpenMP-style Python."""
+"""Host DGEMM: numpy reference, pure-Python tiles, and AVX-512 OpenMP C kernel."""
 
 from __future__ import annotations
 
+import ctypes
+import os
+import subprocess
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 import numpy as np
 
 from uni_cute_tensor.atoms.host_avx512 import HOST_AVX512_8x8x8_F64
+
+_SRC = Path(__file__).resolve().parents[1] / "kernels" / "host" / "dgemm_avx512.c"
+_BUILD = Path(__file__).resolve().parents[3] / "build" / "host"
+_SO = _BUILD / "libhost_dgemm_avx512.so"
 
 
 @dataclass
@@ -43,10 +51,7 @@ def host_blocked_dgemm(
     *,
     tile: int | None = None,
 ) -> tuple[np.ndarray, HostDgemmResult]:
-    """Simple tiled GEMM whose tile size follows the Host AVX-512 atom (8).
-
-    This is a correctness/layout exercise, not a peak kernel.
-    """
+    """Pure-Python tiled GEMM (atom tile=8) for layout correctness."""
     if tile is None:
         tile = HOST_AVX512_8x8x8_F64.shape_mnk[0]
     a = np.ascontiguousarray(a, dtype=np.float64)
@@ -74,4 +79,95 @@ def host_blocked_dgemm(
         max_abs_err=err,
         status="pass" if err < 1e-9 else "fail",
         atom_name=HOST_AVX512_8x8x8_F64.name,
+    )
+
+
+def compile_host_avx512(*, force: bool = False) -> Path:
+    """Build shared library with gcc -mavx512f -fopenmp."""
+    if not _SRC.is_file():
+        raise FileNotFoundError(_SRC)
+    _BUILD.mkdir(parents=True, exist_ok=True)
+    if _SO.is_file() and not force:
+        if _SO.stat().st_mtime >= _SRC.stat().st_mtime:
+            return _SO
+    cmd = [
+        "gcc",
+        "-O3",
+        "-fopenmp",
+        "-mavx512f",
+        "-mfma",
+        "-fPIC",
+        "-shared",
+        "-o",
+        str(_SO),
+        str(_SRC),
+    ]
+    r = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+    if r.returncode != 0:
+        raise RuntimeError(f"host avx512 compile failed:\n{r.stderr}\n{r.stdout}")
+    return _SO
+
+
+def _load_lib() -> ctypes.CDLL:
+    so = compile_host_avx512()
+    lib = ctypes.CDLL(str(so))
+    lib.host_dgemm_avx512.argtypes = [
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+    ]
+    lib.host_dgemm_avx512.restype = None
+    return lib
+
+
+def host_avx512_dgemm(
+    a: np.ndarray,
+    b: np.ndarray,
+    *,
+    threads: int | None = None,
+) -> tuple[np.ndarray, HostDgemmResult]:
+    """Native OpenMP+AVX-512 DGEMM via ctypes."""
+    a = np.ascontiguousarray(a, dtype=np.float64)
+    b = np.ascontiguousarray(b, dtype=np.float64)
+    m, k = a.shape
+    k2, n = b.shape
+    if k != k2:
+        raise ValueError("inner dim mismatch")
+    c = np.empty((m, n), dtype=np.float64)
+
+    if threads is not None and threads > 0:
+        os.environ["OMP_NUM_THREADS"] = str(threads)
+
+    lib = _load_lib()
+    # warmup
+    lib.host_dgemm_avx512(
+        m,
+        n,
+        k,
+        a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        b.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+    )
+    t0 = time.perf_counter()
+    lib.host_dgemm_avx512(
+        m,
+        n,
+        k,
+        a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        b.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+        c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+    )
+    elapsed = time.perf_counter() - t0
+    ref = a @ b
+    err = float(np.max(np.abs(c - ref)))
+    gflops = 2.0 * m * n * k / elapsed / 1e9 if elapsed > 0 else 0.0
+    return c, HostDgemmResult(
+        elapsed_sec=elapsed,
+        gflops=gflops,
+        max_abs_err=err,
+        status="pass" if err < 1e-8 else "fail",
+        atom_name="HOST_AVX512_OMP_FMA",
     )

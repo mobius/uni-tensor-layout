@@ -219,6 +219,10 @@ Intel FlexLM 特性名。ICC 16.0（PSXE 2016）检出 **Comp-CL**；当前 `par
 
 Knights Corner 的 ELF 机器类型（Intel K1OM）。MPSS 提供 `k1om-mpss-linux-gcc` 交叉工具链，可不依赖 ICC license 生成 `.mic` 可执行文件。
 
+### MKL (Intel Math Kernel Library)
+
+厂商稠密线性代数库。本机 Phi 使用 **MIC 版** `libmkl_*`（`icc_mic_libs` / 容器 `mkl/lib/mic`）通过 `cblas_dgemm` 做 native DGEMM，大矩阵可达 ~700+ GFLOPS。
+
 ## 文档维护日志
 
 | 日期 | 变更 |
