@@ -21,17 +21,25 @@ def main() -> int:
     As = [rng.standard_normal((m, k)) for _ in range(n_batch)]
     Bs = [rng.standard_normal((k, n)) for _ in range(n_batch)]
 
-    for overlap in (False, True):
-        res = run_hetero_multibatch(
-            As, Bs, alpha=1.02, beta=0.0, overlap=overlap, use_aveo=False
-        )
-        print(
-            f"overlap={overlap} status={res.status} wall={res.wall_sec:.3f}s "
-            f"batch/s={res.throughput_batches_per_sec:.3f} err={res.max_abs_err:.3e}"
-        )
-        print(" ", res.notes)
-        if res.status != "pass":
-            return 1
+    for use_phi_worker in (False, True):
+        for overlap in (False, True):
+            res = run_hetero_multibatch(
+                As,
+                Bs,
+                alpha=1.02,
+                beta=0.0,
+                overlap=overlap,
+                use_aveo=False,
+                use_phi_worker=use_phi_worker,
+            )
+            print(
+                f"phi_worker={use_phi_worker} overlap={overlap} status={res.status} "
+                f"wall={res.wall_sec:.3f}s batch/s={res.throughput_batches_per_sec:.3f} "
+                f"err={res.max_abs_err:.3e}"
+            )
+            print(" ", res.notes)
+            if res.status != "pass":
+                return 1
     return 0
 
 

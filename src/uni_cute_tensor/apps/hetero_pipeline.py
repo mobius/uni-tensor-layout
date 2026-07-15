@@ -13,10 +13,12 @@ from typing import Optional, Sequence
 import numpy as np
 
 from uni_cute_tensor.backends.phi_prep import run_phi_prep_scale
+from uni_cute_tensor.backends.phi_worker import PhiWorker
 from uni_cute_tensor.backends.ve_aveo import multi_ve_aveo_dgemm
 from uni_cute_tensor.backends.ve_dgemm import multi_ve_layout_dgemm
 from uni_cute_tensor.backends.ve_worker import VeWorkerPool, multi_ve_layout_dgemm_pooled
 from uni_cute_tensor.bridge.uni_adapter import discover_devices, ve_device_names
+from uni_cute_tensor.power import PowerCap
 
 
 @dataclass
@@ -118,12 +120,11 @@ def run_hetero_multibatch(
     devices: Optional[Sequence[str]] = None,
     overlap: bool = True,
     use_aveo: bool = False,
+    use_phi_worker: bool = True,
     phi_threads: int = 120,
+    power_cap: Optional[PowerCap] = None,
 ) -> HeteroPipelineResult:
-    """Multi-batch pipeline; if overlap, Phi prep batch i+1 while VE computes batch i.
-
-    Note: Phi prep is still synchronous scp-bound; overlap helps when VE wall is long.
-    """
+    """Multi-batch pipeline; optional Phi worker + Phi||VE overlap."""
     if len(batches_a) != len(batches_b) or not batches_a:
         raise ValueError("batches_a/b must be non-empty and same length")
     if devices is None:
@@ -133,25 +134,48 @@ def run_hetero_multibatch(
 
     n_batch = len(batches_a)
     max_err = 0.0
-    notes: list[str] = [f"batches={n_batch} overlap={overlap} aveo={use_aveo}"]
+    notes: list[str] = [
+        f"batches={n_batch} overlap={overlap} aveo={use_aveo} "
+        f"phi_worker={use_phi_worker}"
+    ]
     t0 = time.perf_counter()
 
     mode = "aveo" if use_aveo else "pool"
     pool = None
-    if mode == "pool":
-        ve_ids = [int(d.replace("ve", "")) for d in devices]
-        pool = VeWorkerPool(ve_ids)
-        pool.start()
+    phi_w: Optional[PhiWorker] = None
+    ve_ids = [int(d.replace("ve", "")) for d in devices]
+    launch_devs = ["phi0"] + list(devices)
+    ops = {d: ("scale" if d.startswith("phi") else "dgemm") for d in launch_devs}
+
+    if power_cap is None:
+        power_cap = PowerCap()
+    if not power_cap.can_launch(launch_devs, ops):
+        raise RuntimeError(
+            f"PowerCap refused hetero launch backend={power_cap.backend} "
+            f"limit={power_cap.effective_limit:.0f}W"
+        )
+    power_cap.reserve(launch_devs, ops)
+    notes.append(f"power_cap={power_cap.backend}")
+
+    def phi_scale(a_mat):
+        if phi_w is not None:
+            return phi_w.scale(a_mat, alpha=alpha, beta=beta)
+        return run_phi_prep_scale(a_mat, alpha=alpha, beta=beta, threads=phi_threads)
 
     ve_means: list[float] = []
     phi_g = 0.0
 
     try:
+        if mode == "pool":
+            pool = VeWorkerPool(ve_ids)
+            pool.start()
+        if use_phi_worker:
+            phi_w = PhiWorker()
+            phi_w.start(threads=phi_threads)
+
         if not overlap:
             for a, b in zip(batches_a, batches_b):
-                a_s, prep = run_phi_prep_scale(
-                    a, alpha=alpha, beta=beta, threads=phi_threads
-                )
+                a_s, prep = phi_scale(a)
                 phi_g = prep.gflops
                 c, _, ve_mean, ok, _ = _ve_gemm(
                     a_s, b, devices, mode=mode, pool=pool
@@ -162,10 +186,7 @@ def run_hetero_multibatch(
                 if not ok:
                     notes.append("ve_fail")
         else:
-            # double buffer: prep[0], then loop (ve[i] || prep[i+1])
-            a_s, prep = run_phi_prep_scale(
-                batches_a[0], alpha=alpha, beta=beta, threads=phi_threads
-            )
+            a_s, prep = phi_scale(batches_a[0])
             phi_g = prep.gflops
             prepped = [(a_s, batches_b[0], batches_a[0])]
             for i in range(n_batch):
@@ -182,13 +203,7 @@ def run_hetero_multibatch(
                 if i + 1 < n_batch:
                     with ThreadPoolExecutor(max_workers=2) as ex:
                         f_ve = ex.submit(ve_job)
-                        f_phi = ex.submit(
-                            run_phi_prep_scale,
-                            batches_a[i + 1],
-                            alpha=alpha,
-                            beta=beta,
-                            threads=phi_threads,
-                        )
+                        f_phi = ex.submit(phi_scale, batches_a[i + 1])
                         err, ve_mean, ok = f_ve.result()
                         a_next, prep_next = f_phi.result()
                         phi_g = prep_next.gflops
@@ -202,6 +217,9 @@ def run_hetero_multibatch(
     finally:
         if pool is not None:
             pool.stop()
+        if phi_w is not None:
+            phi_w.stop()
+        power_cap.release(launch_devs)
 
     wall = time.perf_counter() - t0
     status = "pass" if max_err < 1e-8 else "fail"

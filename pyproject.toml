@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uni-cute-tensor"
-version = "0.4.0"
+version = "0.5.0"
 description = "CuTe layout algebra for Host AVX-512 + Xeon Phi + NEC VE heterogeneous systems"
 readme = "README.md"
 license = "MIT"

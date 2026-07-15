@@ -16,18 +16,18 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v0.4.0** — layout algebra + real Host/Phi/VE backends, AVEO offload, hetero pipeline.
+**v0.5.0** — layout algebra + Host/Phi/VE + AVEO async phases + PowerCap + unified bench.
 
 ### Real hardware (this machine class)
 
 | Test | Result (example) |
 |------|------------------|
-| multi-VE NLC kernel | ~**1.5 TFLOPS/card** |
-| multi-VE wall | oneshot vs **pool ~10×** vs **AVEO ~8×** @ 512³ |
-| Phi DGEMM | **MKL ~750 GFLOPS** @ 1536; peak FMA ~570 GFLOPS |
-| Hetero Phi→VE | scale prep + multi-VE; multi-batch overlap demo |
-| Host | `host_dgemm(auto)` → AVX-512 small / OpenBLAS large |
-| Layout | `choose_best_placement` row vs col cost model |
+| multi-VE wall @1024³ | oneshot 0.16s / **pool 0.035s** / AVEO 0.07s |
+| AVEO async @1536 | kernel ~**1.7 TFLOPS**; H2D+D2H often > kernel |
+| Phi MKL @1024 | ~**630 GFLOPS** |
+| Hetero multi-batch | ~**0.34 batch/s** with Phi worker + overlap + PowerCap |
+| Host | `host_dgemm(auto)` / OpenBLAS ~480 GF @2048 |
+| Summary | `python scripts/bench_summary.py` |
 
 Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC probe (file is never committed).
 

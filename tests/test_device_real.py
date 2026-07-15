@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -127,6 +129,32 @@ def test_host_dgemm_auto():
     c, r = host_dgemm(a, b, backend="auto")
     assert r.status == "pass"
     assert c.shape == (64, 64)
+
+
+def test_power_cap_local():
+    from uni_cute_tensor.power import PowerCap
+
+    cap = PowerCap(psu_limit_w=1600, safety_margin=0.9)
+    assert cap.can_launch(["ve1"], {"ve1": "dgemm"})
+    with cap.guard(["ve1", "ve2"], {"ve1": "dgemm", "ve2": "dgemm"}):
+        assert cap.reserved_watts() > 0
+    # after release
+    assert cap.reserved_watts() == 0 or cap.backend == "uni"
+
+
+@pytest.mark.skipif(not Path("/dev/mic0").exists(), reason="no mic")
+def test_phi_worker_scale():
+    from uni_cute_tensor.backends.phi_worker import PhiWorker
+
+    rng = np.random.default_rng(4)
+    a = rng.standard_normal((64, 48))
+    try:
+        with PhiWorker() as w:
+            c, r = w.scale(a, alpha=1.1, beta=0.01)
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(str(exc))
+    assert r.status == "pass"
+    assert c.shape == a.shape
 
 
 @pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")

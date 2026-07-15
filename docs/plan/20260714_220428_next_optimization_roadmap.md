@@ -132,14 +132,16 @@
   ├─ Host auto backend ✅
   └─ 文档 + bench ✅
 
-迭代 N+2（应用面） ⏳ 下一步
-  ├─ Hetero：Phi 常驻 / 更大 VE 算量以兑现重叠
-  ├─ AVEO 异步 write/call/read 重叠 H2D∥compute
-  └─ PowerCap 可选开关（接 uni）
+迭代 N+2（应用面） ✅ 2026-07-15
+  ├─ Hetero：Phi 常驻 worker + multi-batch 重叠 ✅
+  ├─ AVEO 异步分阶段 H2D / kernel / D2H 计时 ✅
+  ├─ PowerCap（本地 + uni）✅
+  └─ 统一性能表 bench_summary ✅
 
-迭代 N+3（产品化）
-  ├─ 统一性能表 + README 刷新
-  └─ Phi worker pool
+迭代 N+3（产品化） ⏳ 可选后续
+  ├─ AVEO 真多缓冲（算 i 同时传 i+1）
+  ├─ Phi worker 控制面改卡上 FIFO 减 scp
+  └─ 持续吞吐 + 传感器功率曲线
 ```
 
 ---

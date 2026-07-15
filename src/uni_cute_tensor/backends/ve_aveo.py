@@ -117,6 +117,9 @@ class AveoRunResult:
     max_abs_err: float
     status: str
     mode: str = "aveo"
+    h2d_sec: float = 0.0
+    kernel_sec: float = 0.0
+    d2h_sec: float = 0.0
 
 
 def _load_host_lib() -> ctypes.CDLL:
@@ -147,6 +150,20 @@ def _load_host_lib() -> ctypes.CDLL:
         ctypes.POINTER(ctypes.c_double),
     ]
     lib.aveo_session_dgemm.restype = ctypes.c_int
+    lib.aveo_session_dgemm_async.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.c_int,
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+        ctypes.POINTER(ctypes.c_double),
+    ]
+    lib.aveo_session_dgemm_async.restype = ctypes.c_int
     lib.aveo_session_close.argtypes = [ctypes.c_void_p]
     lib.aveo_session_close.restype = None
     return lib
@@ -159,6 +176,7 @@ def run_aveo_dgemm(
     ve_node: int = 1,
     session: Optional[ctypes.c_void_p] = None,
     lib: Optional[ctypes.CDLL] = None,
+    async_phases: bool = False,
 ) -> tuple[np.ndarray, AveoRunResult]:
     """C = A @ B on one VE via AVEO. ve_node is ve_exec -N style (1,2,3)."""
     _ensure_ve_ld_path()
@@ -173,8 +191,26 @@ def run_aveo_dgemm(
         lib = _load_host_lib()
     ve_lib = str(_VE_SO_RUNTIME).encode()
     elapsed = ctypes.c_double(0.0)
+    h2d = ctypes.c_double(0.0)
+    kern = ctypes.c_double(0.0)
+    d2h = ctypes.c_double(0.0)
     t0 = time.perf_counter()
-    if session:
+    if session and async_phases:
+        rc = lib.aveo_session_dgemm_async(
+            session,
+            m,
+            n,
+            k,
+            a.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            b.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
+            ctypes.byref(h2d),
+            ctypes.byref(kern),
+            ctypes.byref(d2h),
+            ctypes.byref(elapsed),
+        )
+        mode = "aveo-async"
+    elif session:
         rc = lib.aveo_session_dgemm(
             session,
             m,
@@ -185,6 +221,7 @@ def run_aveo_dgemm(
             c.ctypes.data_as(ctypes.POINTER(ctypes.c_double)),
             ctypes.byref(elapsed),
         )
+        mode = "aveo-session"
     else:
         rc = lib.aveo_dgemm(
             ve_node,
@@ -197,11 +234,14 @@ def run_aveo_dgemm(
             ve_lib,
             ctypes.byref(elapsed),
         )
+        mode = "aveo-oneshot"
     wall = time.perf_counter() - t0
     el = float(elapsed.value) if elapsed.value > 0 else wall
     ref = a @ b
     err = float(np.max(np.abs(c - ref)))
-    gflops = 2.0 * m * n * k / el / 1e9 if el > 0 else 0.0
+    # report kernel-only GFLOPS when async phases available
+    ker_t = float(kern.value) if kern.value > 0 else el
+    gflops = 2.0 * m * n * k / ker_t / 1e9 if ker_t > 0 else 0.0
     return c, AveoRunResult(
         device=f"ve{ve_node}",
         ve_id=ve_node,
@@ -212,7 +252,10 @@ def run_aveo_dgemm(
         elapsed_sec=el,
         max_abs_err=err,
         status="pass" if rc == 0 and err < 1e-8 else "fail",
-        mode="aveo-session" if session else "aveo-oneshot",
+        mode=mode,
+        h2d_sec=float(h2d.value),
+        kernel_sec=float(kern.value),
+        d2h_sec=float(d2h.value),
     )
 
 
@@ -248,9 +291,21 @@ class AveoSessionPool:
     def __exit__(self, *args) -> None:
         self.stop()
 
-    def dgemm(self, ve_node: int, a: np.ndarray, b: np.ndarray):
+    def dgemm(
+        self,
+        ve_node: int,
+        a: np.ndarray,
+        b: np.ndarray,
+        *,
+        async_phases: bool = False,
+    ):
         return run_aveo_dgemm(
-            a, b, ve_node=ve_node, session=self._sessions[ve_node], lib=self._lib
+            a,
+            b,
+            ve_node=ve_node,
+            session=self._sessions[ve_node],
+            lib=self._lib,
+            async_phases=async_phases,
         )
 
 
