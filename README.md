@@ -16,19 +16,18 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-v0.1.1 — layout atoms, multi-device partitioner, **real multi-VE NLC DGEMM**, Phi peak smoke, host tile GEMM.
+**v0.4.0** — layout algebra + real Host/Phi/VE backends, AVEO offload, hetero pipeline.
 
 ### Real hardware (this machine class)
 
 | Test | Result (example) |
 |------|------------------|
-| Multi-VE layout DGEMM 1536×1024×1024 | max_abs_err ~4e-13; ~1.4 TFLOPS/card kernel |
-| Phi peak FP64 | ~570 GFLOPS via prebuilt `.mic` |
-| Phi layout DGEMM | **MKL ~750 GFLOPS** @ 1536; IMCI ~100 GFLOPS @ 2048 |
-| multi-VE NLC | ~**1.5 TFLOPS/card** kernel; `share_b` + **worker pool ~4–10× wall** |
-| Hetero Phi→VE | Phi scale prep + multi-VE GEMM (`examples/demo_hetero_pipeline.py`) |
-| Host vs OpenBLAS | fair median bench: OpenBLAS wins large N; hand AVX-512 mid N |
-| Host blocked tile=8 | layout correctness exercise |
+| multi-VE NLC kernel | ~**1.5 TFLOPS/card** |
+| multi-VE wall | oneshot vs **pool ~10×** vs **AVEO ~8×** @ 512³ |
+| Phi DGEMM | **MKL ~750 GFLOPS** @ 1536; peak FMA ~570 GFLOPS |
+| Hetero Phi→VE | scale prep + multi-VE; multi-batch overlap demo |
+| Host | `host_dgemm(auto)` → AVX-512 small / OpenBLAS large |
+| Layout | `choose_best_placement` row vs col cost model |
 
 Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC probe (file is never committed).
 

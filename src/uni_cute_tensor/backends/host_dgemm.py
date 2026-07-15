@@ -171,3 +171,40 @@ def host_avx512_dgemm(
         status="pass" if err < 1e-8 else "fail",
         atom_name="HOST_AVX512_OMP_FMA",
     )
+
+
+def host_dgemm(
+    a: np.ndarray,
+    b: np.ndarray,
+    *,
+    backend: str = "auto",
+    threads: int | None = None,
+    auto_threshold: int = 768,
+) -> tuple[np.ndarray, HostDgemmResult]:
+    """Host DGEMM with backend selection.
+
+    backend:
+      - openblas / numpy: numpy ``@`` (OpenBLAS in this env)
+      - avx512: hand-written OpenMP+AVX-512
+      - auto: avx512 if max(M,N,K) < auto_threshold else openblas
+    """
+    backend = backend.lower()
+    m, k = a.shape
+    n = b.shape[1]
+    if backend == "auto":
+        backend = "avx512" if max(m, n, k) < auto_threshold else "openblas"
+    if backend in ("openblas", "numpy", "blas"):
+        c, r = host_numpy_dgemm(a, b)
+        r = HostDgemmResult(
+            elapsed_sec=r.elapsed_sec,
+            gflops=r.gflops,
+            max_abs_err=r.max_abs_err,
+            status=r.status,
+            atom_name="openblas_numpy",
+        )
+        return c, r
+    if backend == "avx512":
+        return host_avx512_dgemm(a, b, threads=threads)
+    if backend == "blocked":
+        return host_blocked_dgemm(a, b)
+    raise ValueError(f"unknown host backend: {backend}")

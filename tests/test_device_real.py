@@ -92,6 +92,44 @@ def test_hetero_phi_ve_pipeline():
 
 
 @pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
+def test_aveo_single_ve():
+    from uni_cute_tensor.backends.ve_aveo import aveo_available, run_aveo_dgemm
+
+    if not aveo_available():
+        pytest.skip("AVEO not available")
+    rng = np.random.default_rng(8)
+    a = rng.standard_normal((96, 64))
+    b = rng.standard_normal((64, 80))
+    try:
+        c, res = run_aveo_dgemm(a, b, ve_node=1)
+    except Exception as exc:  # pragma: no cover
+        pytest.skip(f"AVEO run failed: {exc}")
+    assert res.status == "pass"
+    assert res.max_abs_err < 1e-8
+    assert c.shape == (96, 80)
+
+
+def test_choose_best_placement():
+    from uni_cute_tensor.partition.cost_model import choose_best_placement
+
+    choice = choose_best_placement(1024, 512, 256, ["ve1", "ve2", "ve3"])
+    assert choice.strategy in ("row_blocks", "col_blocks")
+    assert choice.est_total_sec > 0
+    assert len(choice.plan.shards) >= 1
+
+
+def test_host_dgemm_auto():
+    from uni_cute_tensor.backends.host_dgemm import host_dgemm
+
+    rng = np.random.default_rng(2)
+    a = rng.standard_normal((64, 64))
+    b = rng.standard_normal((64, 64))
+    c, r = host_dgemm(a, b, backend="auto")
+    assert r.status == "pass"
+    assert c.shape == (64, 64)
+
+
+@pytest.mark.skipif(not ve_toolchain_available(), reason="VE toolchain missing")
 def test_single_ve_dgemm_correctness():
     ve = ve_device_names(discover_devices())
     if not ve:

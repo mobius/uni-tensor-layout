@@ -2,7 +2,8 @@
 
 > 文档时间: 2026-07-14 22:04:28  
 > 基线版本: **0.3.0** (`b825dac`)  
-> 状态: 规划（未实施）
+> 状态: **N+1 已实施**（见 `docs/impl/20260715_021426_aveo_hetero_layout_host_auto.md`）  
+> 更新: 2026-07-15 — AVEO / hetero overlap / layout cost / host auto
 
 ---
 
@@ -123,20 +124,22 @@
 ## 6. 建议实施顺序（2–3 个迭代）
 
 ```text
-迭代 N+1（数据面）
-  ├─ AVEO PoC（单 VE dgemm）
-  ├─ 并入 multi-VE + 与 worker 文件路径 A/B 对比
-  └─ 文档 + bench 列
+迭代 N+1（数据面） ✅ 2026-07-15
+  ├─ AVEO PoC（单 VE dgemm） ✅
+  ├─ multi-VE AVEO + oneshot/pool/aveo 对比 ✅
+  ├─ Hetero multi-batch 重叠（部分，Phi scp 仍限收益）✅
+  ├─ Layout 代价模型 row/col ✅
+  ├─ Host auto backend ✅
+  └─ 文档 + bench ✅
 
-迭代 N+2（应用面）
-  ├─ Hetero 双缓冲 multi-batch
-  ├─ Layout 代价模型选切分
-  └─ PowerCap 可选开关
+迭代 N+2（应用面） ⏳ 下一步
+  ├─ Hetero：Phi 常驻 / 更大 VE 算量以兑现重叠
+  ├─ AVEO 异步 write/call/read 重叠 H2D∥compute
+  └─ PowerCap 可选开关（接 uni）
 
 迭代 N+3（产品化）
-  ├─ Host auto backend
   ├─ 统一性能表 + README 刷新
-  └─ Phi worker pool（若 scp 仍痛）
+  └─ Phi worker pool
 ```
 
 ---

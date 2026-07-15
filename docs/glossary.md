@@ -231,6 +231,10 @@ Knights Corner 的 ELF 机器类型（Intel K1OM）。MPSS 提供 `k1om-mpss-lin
 
 开源 BLAS。本机 numpy 链接 **OpenBLAS 0.3.33**（scipy-openblas64）。Host 公平对照见 `scripts/bench_host_blas_fair.py`。
 
+### AVEO / VEO
+
+NEC **Vector Engine Offloading**：Host 通过 `libveo` 在 VE 上 `alloc/write/call/read`，无需为每次 kernel `ve_exec` 拉起进程并依赖文件。本仓库 `backends/ve_aveo.py` 封装 NLC DGEMM 卸载。节点号与 `ve_exec -N` 一致（1–3）。
+
 ## 文档维护日志
 
 | 日期 | 变更 |
