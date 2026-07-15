@@ -192,7 +192,7 @@
 2. 同步写 `docs/impl/<ts>_m1_*`  
 3. 每完成里程碑更新本文件进度表（追加「进度」节，不删历史）  
 
-**当前状态**: **Phase 2 / v1.0.0 完成**。后续为维护与可选 1.x 增强（非常驻服务、校准收紧等）。
+**当前状态**: **阶段关闭** — Phase 2（v1.0）+ 终端案例 E1–E5（**v1.1.0**）。后续新需求另开 plan。
 
 ---
 
@@ -204,3 +204,4 @@
 | 2026-07-14 | **M1** | DataPlane + AVEO pin + Timeline + perf_gate；pinned@512 multi-batch ~**1.25×** session；device 15 pass |
 | 2026-07-14 | **M2** | PlacementPlan JSON + auto row/col/k + SpMV dataprep + uni TaskGraph；auto 单 VE ≫ 固定 3-VE mid-size |
 | 2026-07-14 | **M3** | API v1 冻结、CI L0、extras、README 基线、tag **v1.0.0** |
+| 2026-07-15 | **收尾** | 终端案例 E1–E5；tag **v1.1.0**；`docs/impl/20260715_014700_phase_close_v1_1.md` |

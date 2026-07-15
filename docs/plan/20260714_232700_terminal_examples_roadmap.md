@@ -3,7 +3,7 @@
 > 文档时间: 2026-07-14 23:27:00  
 > 基线: **v1.0.0**（API 冻结、DataPlane、Placement、SpMV/dataprep、TaskGraph 桥）  
 > 对齐: [uni-framework](https://github.com/mobius/uni-framework) 应用层（hetero_spmv / hetero_dataprep / examples/*）  
-> 状态: **X1+X2 完成**（E1–E5 全套）
+> 状态: **已关闭**（X1+X2 / E1–E5 全套，随 v1.1.0 收尾）
 
 ---
 

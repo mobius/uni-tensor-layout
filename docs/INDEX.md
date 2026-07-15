@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.0.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.1.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -31,6 +31,7 @@
 | [impl/20260714_230800_m3_v1_freeze.md](impl/20260714_230800_m3_v1_freeze.md) | M3 v1.0 freeze |
 | [impl/20260714_233200_examples_e1_e2.md](impl/20260714_233200_examples_e1_e2.md) | Terminal examples X1 (E1–E2) |
 | [impl/20260715_010300_examples_e3_e5.md](impl/20260715_010300_examples_e3_e5.md) | Terminal examples X2 (E3–E5) |
+| [impl/20260715_014700_phase_close_v1_1.md](impl/20260715_014700_phase_close_v1_1.md) | **Phase close → v1.1.0** |
 
 ## Research
 

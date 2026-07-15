@@ -16,10 +16,12 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.0.0** — public API frozen. Phase 2 complete (DataPlane, auto PlacementPlan, SpMV app, CI L0).
+**v1.1.0** — Phase 2 + **terminal examples E1–E5** complete. Public API still the v1.0 freeze.
 
 - API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md)
-- Docs map: [`docs/INDEX.md`](docs/INDEX.md)
+- Examples: [`examples/README.md`](examples/README.md)
+- Phase close: [`docs/impl/20260715_014700_phase_close_v1_1.md`](docs/impl/20260715_014700_phase_close_v1_1.md)
+- Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 - Glossary: [`docs/glossary.md`](docs/glossary.md)
 
 ### Performance baseline (this machine class)
@@ -34,6 +36,7 @@ Repository: https://github.com/mobius/uni-tensor-layout
 | ve | auto-place vs fixed 3-VE @512³ | **~0.2 s vs ~0.5 s** |
 | dp | `aveo_pinned` @512³ | wall **~0.008 s** |
 | app | SpMV→GEMM + uni TaskGraph | **pass** (err ~1e-12) |
+| e5 | resident AVEO pin vs cold oneshot | ~**4.7×** jobs/s (example size) |
 
 Regenerate table: `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md`.
 

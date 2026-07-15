@@ -8,6 +8,8 @@ import uni_cute_tensor as uct
 def test_version_semver_major():
     parts = uct.__version__.split(".")
     assert int(parts[0]) >= 1
+    # 1.1.x after terminal examples closeout
+    assert (int(parts[0]), int(parts[1])) >= (1, 0)
 
 
 def test_public_all_importable():
