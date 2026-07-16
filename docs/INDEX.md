@@ -23,6 +23,7 @@
 | [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | Phase 3 complete (v1.4) |
 | [plan/20260715_225600_phase4_hardening_and_use.md](plan/20260715_225600_phase4_hardening_and_use.md) | Phase 4（M2 uct-serve done） |
 | [plan/20260716_011100_use_case_service_and_paper.md](plan/20260716_011100_use_case_service_and_paper.md) | 用途：日常服务 + 论文（S1–S3 done） |
+| [plan/20260716_042600_next_service_paper_hardening.md](plan/20260716_042600_next_service_paper_hardening.md) | **下阶段** 服务硬化 + 论文闭环 |
 | [SERVICE.md](SERVICE.md) | **Daily uct-serve ops** |
 | [impl/20260716_012000_service_paper_s1s2s3.md](impl/20260716_012000_service_paper_s1s2s3.md) | S1–S3 implementation |
 | [impl/20260715_230500_phase4_m2_uct_serve.md](impl/20260715_230500_phase4_m2_uct_serve.md) | uct-serve workflow |
