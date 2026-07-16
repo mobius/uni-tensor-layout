@@ -7,7 +7,8 @@
 > - `docs/plan/20260714_232700_terminal_examples_roadmap.md`（**完成**）  
 > - 收尾: `docs/impl/20260715_014700_phase_close_v1_1.md`  
 > 状态: **Phase 3 完成**（M1 v1.2 / M2 v1.3 / **M3 v1.4.0**）  
-> 目标版本: **v1.2 → v1.4**（1.x API 兼容）
+> 目标版本: **v1.2 → v1.4**（1.x API 兼容）  
+> **下一阶段**: [`20260715_225600_phase4_hardening_and_use.md`](20260715_225600_phase4_hardening_and_use.md)
 
 ---
 
