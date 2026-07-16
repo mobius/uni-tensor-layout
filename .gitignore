@@ -54,3 +54,6 @@ artifacts/
 # Optional local UNI path override files
 .uni_root
 config.local.toml
+
+# uv lock (optional local)
+uv.lock
