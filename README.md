@@ -16,13 +16,12 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.3.0** — Phase 3 **M1+M2**: dispatch policy, shared sessions, **`uct-run`** job templates.
+**v1.4.0** — Phase 3 **complete** (M1–M3): dispatch, `uct-run`, AVEO/Phi limits, multi-source power.
 
-- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md)
-- Jobs: `uct-run --list` · `uct-run jobs/dense_batch.json` · `uct-run dense_batch_ve_win.json`
+- Jobs: `uct-run --list` · `uct-run jobs/dense_batch.json`
 - Dispatch: `uct-recommend -m 512 -n 512 -k 512 --batches 8`
-- Examples: [`examples/README.md`](examples/README.md)
-- Break-even / calibrate: `scripts/bench_breakeven.py` · `scripts/calibrate_cost_model.py`
+- Power: RAPL (+ optional ipmitool / `UCT_VE_POWER_SENSORS`)
+- AVEO limits: `docs/architecture/20260715_221500_aveo_async_limits.md`
 - Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
 ### Performance baseline (this machine class)

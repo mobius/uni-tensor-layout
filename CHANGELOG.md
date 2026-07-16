@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.4.0 — 2026-07-15
+
+### Added (Phase 3 M3)
+
+- Multi-source power sampling: RAPL + ipmitool + optional VE sensors (`power_sample.py`)
+- AVEO overlap limits bench + architecture note (ordered VEO queue; pin/dual-buf wins)
+- Phi SSH ControlMaster mux (`UCT_PHI_SSH_MUX`); `bench_phi_dataplane.py`
+- Docs: `architecture/*_aveo_async_limits.md`, `*_phi_dataplane_limits.md`
+
 ## 1.3.0 — 2026-07-15
 
 ### Added (Phase 3 M2)

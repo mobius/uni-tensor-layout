@@ -68,6 +68,35 @@ def _podman_available() -> bool:
     return shutil.which("podman") is not None
 
 
+def _ssh_control_path() -> Optional[str]:
+    """Optional SSH ControlMaster path (Phase 3 M3): amortize TCP/auth to mic0.
+
+    Enable with UCT_PHI_SSH_MUX=1 (default on when /tmp writable).
+    """
+    env = os.environ.get("UCT_PHI_SSH_MUX", "1").strip().lower()
+    if env in ("0", "false", "no", "off"):
+        return None
+    # per-user socket; %C is hash of host (OpenSSH)
+    return os.environ.get(
+        "UCT_PHI_SSH_CONTROL_PATH",
+        f"/tmp/uct-ssh-mux-%C-{os.getuid()}",
+    )
+
+
+def _ssh_mux_opts() -> list[str]:
+    cp = _ssh_control_path()
+    if not cp:
+        return []
+    return [
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        f"ControlPath={cp}",
+        "-o",
+        "ControlPersist=120",
+    ]
+
+
 def _ssh_base() -> list[str]:
     return [
         "ssh",
@@ -79,6 +108,7 @@ def _ssh_base() -> list[str]:
         "UserKnownHostsFile=/dev/null",
         "-o",
         "LogLevel=ERROR",
+        *_ssh_mux_opts(),
     ]
 
 
@@ -93,6 +123,7 @@ def _scp_base() -> list[str]:
         "UserKnownHostsFile=/dev/null",
         "-o",
         "LogLevel=ERROR",
+        *_ssh_mux_opts(),
     ]
 
 

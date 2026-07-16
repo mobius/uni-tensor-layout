@@ -6,8 +6,8 @@
 > - `docs/plan/20260714_223206_phase2_system_roadmap.md`（**完成**）  
 > - `docs/plan/20260714_232700_terminal_examples_roadmap.md`（**完成**）  
 > - 收尾: `docs/impl/20260715_014700_phase_close_v1_1.md`  
-> 状态: **M1 已完成（v1.2.0）**；M2/M3 待实施  
-> 建议目标版本: **v1.2 → v1.3**（保持 1.x API 兼容）
+> 状态: **Phase 3 完成**（M1 v1.2 / M2 v1.3 / **M3 v1.4.0**）  
+> 目标版本: **v1.2 → v1.4**（1.x API 兼容）
 
 ---
 
@@ -112,14 +112,15 @@
 **出口**: `uct-run jobs/dense_batch.json`；metrics 统一。  
 **实现**: `docs/impl/20260715_220500_phase3_m2_job_runner.md`
 
-### M3 — 异构深化（→ 约 v1.3.0）
+### M3 — 异构深化（→ v1.4.0） — **DONE**
 
-1. W2.1 AVEO 重叠结论  
-2. W2.3 Phi 数据面改进或上限证明  
-3. W4.1 功率多源  
-4. （可选）W3.4 本地投递  
+1. ~~W2.1 AVEO 重叠结论~~  
+2. ~~W2.3 Phi 数据面（ControlMaster + 带宽测量）~~  
+3. ~~W4.1 功率多源（RAPL / ipmitool / VE env）~~  
+4. W3.4 本地 HTTP 投递 — **未做**（可选，非必须）  
 
-**出口**: 异构路径有「限制说明 + 最佳实践」；功耗有数或明确 N/A。
+**出口**: architecture 限制说明；功耗 RAPL 可用。  
+**实现**: `docs/impl/20260715_220000_phase3_m3_hetero_power.md`
 
 ---
 

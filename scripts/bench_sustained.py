@@ -44,6 +44,9 @@ def main() -> int:
     b = rng.standard_normal((args.k, args.n))
     flops = 2.0 * args.m * args.n * args.k
 
+    from uni_cute_tensor.power_sample import probe_power_sources
+
+    print("power sources:", probe_power_sources())
     sampler = PowerSampler(interval_sec=0.5)
     sampler.start()
     jobs = 0
@@ -69,7 +72,12 @@ def main() -> int:
     print(f"jobs={jobs} wall={wall:.2f}s jobs/s={jobs/wall:.3f}")
     print(f"effective_gflops={jobs * flops / wall / 1e9:.1f}")
     print(f"max_err={max_err:.3e}")
-    print(f"power_samples={power['n']} mean_w={power['mean_w']} max_w={power['max_w']}")
+    print(
+        f"power n={power['n']} mean_w={power['mean_w']} max_w={power['max_w']} "
+        f"sources={power.get('sources_used')} degrade={power.get('degrade')}"
+    )
+    if power.get("by_source"):
+        print(f"power by_source={power['by_source']}")
     print(f"power_cap_backend={cap.backend} limit={cap.effective_limit:.0f}W")
     return 0
 

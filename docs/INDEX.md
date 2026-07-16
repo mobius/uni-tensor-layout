@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.3.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.4.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -20,7 +20,7 @@
 | [plan/20260714_220428_next_optimization_roadmap.md](plan/20260714_220428_next_optimization_roadmap.md) | N+1–N+3 (done) |
 | [plan/20260714_223206_phase2_system_roadmap.md](plan/20260714_223206_phase2_system_roadmap.md) | Phase 2 M1–M3 → v1.0 |
 | [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
-| [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | **Phase 3**（M1 done / M2–M3 open） |
+| [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | **Phase 3 complete** (v1.4) |
 
 ## Implementation notes (selected)
 
@@ -36,6 +36,9 @@
 | [impl/20260715_215000_phase3_m1_dispatch.md](impl/20260715_215000_phase3_m1_dispatch.md) | Phase 3 M1 dispatch/calibration |
 | [impl/20260715_214911_breakeven.md](impl/20260715_214911_breakeven.md) | Host vs VE break-even sample |
 | [impl/20260715_220500_phase3_m2_job_runner.md](impl/20260715_220500_phase3_m2_job_runner.md) | Phase 3 M2 uct-run + sessions |
+| [impl/20260715_220000_phase3_m3_hetero_power.md](impl/20260715_220000_phase3_m3_hetero_power.md) | Phase 3 M3 AVEO/Phi/power |
+| [architecture/20260715_221500_aveo_async_limits.md](architecture/20260715_221500_aveo_async_limits.md) | AVEO async limits |
+| [architecture/20260715_221500_phi_dataplane_limits.md](architecture/20260715_221500_phi_dataplane_limits.md) | Phi data plane limits |
 
 ## Research
 
