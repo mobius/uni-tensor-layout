@@ -83,7 +83,7 @@
 
 | 任务 | 描述 | 验收 |
 |------|------|------|
-| W5.1 | CI：L0 保持；可选 `workflow_dispatch` device 文档 | 不强制 GH 有卡 |
+| W5.1 | CI：仅本地 `ci_l0.sh`；**不用 GitHub Actions**（无 device） | 文档明确 |
 | W5.2 | API 文档增量：`recommend_*` / job schema（仍 1.x 兼容） | architecture 新时间戳文 |
 | W5.3 | 可选 `uv.lock` 入库策略二选一（锁 or gitignore） | 团队约定写 README |
 | W5.4 | 敏感信息与 license 策略不变 | audit 绿 |

@@ -57,7 +57,7 @@ uv pip install -e ".[dev]"
 bash scripts/check_hw.sh
 # or: uct-check-hw
 
-# L0 CI locally (same as GitHub Actions)
+# L0 checks on this machine (no GitHub CI — runners have no Phi/VE)
 bash scripts/ci_l0.sh
 
 # terminal-facing examples (E1–E5) — see examples/README.md

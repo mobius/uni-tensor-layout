@@ -48,10 +48,13 @@
 | [research/20260714_013534_tensor_layouts_and_uni_survey.md](research/20260714_013534_tensor_layouts_and_uni_survey.md) | tensor-layouts / uni survey |
 | [research/20260714_080104_intel_license_doc_review.md](research/20260714_080104_intel_license_doc_review.md) | ICC license notes (no secrets) |
 
-## Local CI / device jobs
+## Local checks / device jobs
+
+GitHub Actions is **not** used: public runners have no Phi/VE (and L0-only CI adds little
+for this hardware-bound repo). Run on the ESC4000 (or any host) instead:
 
 ```bash
-# L0 (no accelerator) — same as GitHub Actions
+# L0 (no accelerator required)
 bash scripts/ci_l0.sh
 
 # Device (this machine class)
