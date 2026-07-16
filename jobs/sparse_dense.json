@@ -1,0 +1,12 @@
+{
+  "name": "sparse_dense_stencil",
+  "type": "sparse_dense",
+  "nx": 40,
+  "ny": 40,
+  "nrhs": 64,
+  "n_out": 128,
+  "backend": "auto",
+  "devices": "auto",
+  "seed": 0,
+  "description": "2D five-point SpMV then dense projection"
+}

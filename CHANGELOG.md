@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 — 2026-07-15
+
+### Added (Phase 3 M2)
+
+- Shared AVEO/pool sessions (`runtime/session.py`)
+- `uct-run` job runner + `jobs/*.json` templates (dense_batch, sparse_dense, dataprep, ve_win)
+- `scripts/timeline_report.py` for JSONL phase bars
+- Steady-state pin thr vs cold oneshot in dense_batch metrics (~70× on sample)
+
 ## 1.2.0 — 2026-07-15
 
 ### Added (Phase 3 M1)

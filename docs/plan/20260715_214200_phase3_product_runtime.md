@@ -102,14 +102,15 @@
 **出口**: `uct-recommend`；`docs/impl/*_breakeven.md`。  
 **实现**: `docs/impl/20260715_215000_phase3_m1_dispatch.md`
 
-### M2 — 常驻作业入口（→ 约 v1.2.x / 1.3.0）
+### M2 — 常驻作业入口（→ 约 v1.3.0） — **DONE**
 
-1. W2.2 共享 session  
-2. W3.1–W3.2 job runner + 3 模板  
-3. W3.3 一个「Host 不占优」的可复现场景  
-4. W4.2 timeline report  
+1. ~~W2.2 共享 session~~  
+2. ~~W3.1–W3.2 job runner + 模板~~  
+3. ~~W3.3 常驻 pin ≫ oneshot（`dense_batch_ve_win`）~~  
+4. ~~W4.2 timeline report~~  
 
-**出口**: `uct-run jobs/dense_batch.yaml` 一键；metrics schema 统一。
+**出口**: `uct-run jobs/dense_batch.json`；metrics 统一。  
+**实现**: `docs/impl/20260715_220500_phase3_m2_job_runner.md`
 
 ### M3 — 异构深化（→ 约 v1.3.0）
 

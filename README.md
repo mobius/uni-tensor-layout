@@ -16,12 +16,13 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.2.0** — Phase 3 **M1**: `recommend_backend` / `uct-recommend`, cost calibration, Host↔VE break-even.
+**v1.3.0** — Phase 3 **M1+M2**: dispatch policy, shared sessions, **`uct-run`** job templates.
 
-- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md) (+ `recommend_backend`)
-- Examples: [`examples/README.md`](examples/README.md)
+- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md)
+- Jobs: `uct-run --list` · `uct-run jobs/dense_batch.json` · `uct-run dense_batch_ve_win.json`
 - Dispatch: `uct-recommend -m 512 -n 512 -k 512 --batches 8`
-- Break-even: `python scripts/bench_breakeven.py` · calibrate: `python scripts/calibrate_cost_model.py`
+- Examples: [`examples/README.md`](examples/README.md)
+- Break-even / calibrate: `scripts/bench_breakeven.py` · `scripts/calibrate_cost_model.py`
 - Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
 
 ### Performance baseline (this machine class)
@@ -36,7 +37,7 @@ Repository: https://github.com/mobius/uni-tensor-layout
 | ve | auto-place vs fixed 3-VE @512³ | **~0.2 s vs ~0.5 s** |
 | dp | `aveo_pinned` @512³ | wall **~0.008 s** |
 | app | SpMV→GEMM + uni TaskGraph | **pass** (err ~1e-12) |
-| e5 | resident AVEO pin vs cold oneshot | ~**4.7×** jobs/s (example size) |
+| e5 / uct-run ve_win | resident pin vs cold oneshot | ~**70×** thr (256³×32 batch sample) |
 
 Regenerate table: `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md`.
 

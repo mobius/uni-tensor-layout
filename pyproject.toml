@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uni-cute-tensor"
-version = "1.2.0"
+version = "1.3.0"
 description = "CuTe layout algebra for Host AVX-512 + Xeon Phi + NEC VE heterogeneous systems"
 readme = "README.md"
 license = "MIT"
@@ -35,6 +35,7 @@ Repository = "https://github.com/mobius/uni-tensor-layout"
 uct-check-hw = "uni_cute_tensor.cli:check_hw_main"
 uct-demo-partition = "uni_cute_tensor.cli:demo_partition_main"
 uct-recommend = "uni_cute_tensor.cli:recommend_main"
+uct-run = "uni_cute_tensor.cli:run_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

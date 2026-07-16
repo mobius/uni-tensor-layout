@@ -1,0 +1,11 @@
+{
+  "name": "dataprep_project",
+  "type": "dataprep",
+  "m": 512,
+  "k": 384,
+  "n_out": 96,
+  "backend": "auto",
+  "devices": "auto",
+  "seed": 0,
+  "description": "Clean dirty features, standardize, dense project Y=XW"
+}

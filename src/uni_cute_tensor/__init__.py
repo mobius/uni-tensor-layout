@@ -5,7 +5,7 @@ Public API (v1.0 stable) — see ``docs/architecture/*_api_v1.md``.
 
 from __future__ import annotations
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"
 
 from uni_cute_tensor.atoms import (
     HOST_AVX512_8x8x8_F64,
@@ -28,6 +28,7 @@ from uni_cute_tensor.partition.multi_device import (
 from uni_cute_tensor.partition.runner import execute_auto, execute_plan
 from uni_cute_tensor.power import PowerCap
 from uni_cute_tensor.runtime.dataplane import GemmRequest, GemmResult, create_dataplane
+from uni_cute_tensor.runtime.job_runner import JobResult, run_job
 from uni_cute_tensor.runtime.timeline import Timeline, get_timeline, set_timeline, timeline_scope
 
 __all__ = [
@@ -59,6 +60,8 @@ __all__ = [
     "create_dataplane",
     "GemmRequest",
     "GemmResult",
+    "run_job",
+    "JobResult",
     "Timeline",
     "timeline_scope",
     "get_timeline",

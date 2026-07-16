@@ -1,0 +1,13 @@
+{
+  "name": "dense_batch_ve_pin_wins",
+  "type": "dense_batch",
+  "m": 256,
+  "n": 256,
+  "k": 256,
+  "batches": 32,
+  "backend": "aveo",
+  "force_ve": true,
+  "devices": "auto",
+  "seed": 0,
+  "description": "Small multi-batch AVEO pin path — often beats Host OpenBLAS on thr (see Phase 3 M2 docs)"
+}

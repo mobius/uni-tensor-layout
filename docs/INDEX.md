@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.2.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.3.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -35,6 +35,7 @@
 | [impl/20260715_014700_phase_close_v1_1.md](impl/20260715_014700_phase_close_v1_1.md) | Phase close → v1.1.0 |
 | [impl/20260715_215000_phase3_m1_dispatch.md](impl/20260715_215000_phase3_m1_dispatch.md) | Phase 3 M1 dispatch/calibration |
 | [impl/20260715_214911_breakeven.md](impl/20260715_214911_breakeven.md) | Host vs VE break-even sample |
+| [impl/20260715_220500_phase3_m2_job_runner.md](impl/20260715_220500_phase3_m2_job_runner.md) | Phase 3 M2 uct-run + sessions |
 
 ## Research
 

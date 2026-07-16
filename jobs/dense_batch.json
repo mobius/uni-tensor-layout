@@ -1,0 +1,12 @@
+{
+  "name": "dense_batch_default",
+  "type": "dense_batch",
+  "m": 512,
+  "n": 512,
+  "k": 512,
+  "batches": 8,
+  "backend": "auto",
+  "devices": "auto",
+  "seed": 0,
+  "description": "Multi-batch DGEMM; auto host vs shared AVEO pin"
+}

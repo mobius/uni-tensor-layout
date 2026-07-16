@@ -95,3 +95,84 @@ def recommend_main(argv: list[str] | None = None) -> None:
         for e in rec.estimates:
             print(f"  {e.backend:<12} wall={e.est_wall_sec:.4f}s  {'; '.join(e.notes[:2])}")
     sys.exit(0)
+
+
+def run_main(argv: list[str] | None = None) -> None:
+    """Run a job JSON/YAML file (Phase 3 M2)."""
+    from uni_cute_tensor.runtime.job_runner import list_bundled_jobs, run_job
+    from uni_cute_tensor.runtime.session import shutdown_sessions
+
+    p = argparse.ArgumentParser(prog="uct-run")
+    p.add_argument(
+        "job",
+        nargs="?",
+        help="Path to job .json/.yaml (or bundled name without path)",
+    )
+    p.add_argument("--list", action="store_true", help="List bundled jobs/")
+    p.add_argument("--host-only", action="store_true")
+    p.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        help="Write metrics.json here (default artifacts/jobs/<name>)",
+    )
+    p.add_argument("--shutdown", action="store_true", help="Stop shared sessions after run")
+    args = p.parse_args(argv)
+
+    if args.list or not args.job:
+        jobs = list_bundled_jobs()
+        print("Bundled jobs:")
+        root = Path(__file__).resolve().parents[2] / "jobs"
+        if not jobs and root.is_dir():
+            jobs = sorted(root.glob("*.json"))
+        for j in jobs:
+            print(f"  {j.name}  ({j})")
+        if not args.job:
+            if args.list:
+                sys.exit(0)
+            p.error("job path required (or --list)")
+        sys.exit(0)
+
+    job_path = Path(args.job)
+    if not job_path.is_file():
+        # try repo jobs/ and CWD
+        candidates = [
+            Path.cwd() / args.job,
+            Path(__file__).resolve().parents[2] / "jobs" / args.job,
+            Path(__file__).resolve().parents[2] / "jobs" / f"{args.job}.json",
+        ]
+        for c in candidates:
+            if c.is_file():
+                job_path = c
+                break
+        else:
+            print(f"job not found: {args.job}", file=sys.stderr)
+            sys.exit(2)
+
+    out = args.out_dir
+    if out is None:
+        out = Path("artifacts") / "jobs" / job_path.stem
+    try:
+        result = run_job(job_path, host_only=args.host_only, out_dir=out)
+    finally:
+        if args.shutdown:
+            shutdown_sessions()
+
+    print("=== uct-run ===")
+    print(f"job: {job_path}")
+    print(f"type: {result.job_type}  status: {result.status}")
+    print(f"backend: {result.backend}  recommended: {result.recommended}")
+    print(f"wall: {result.wall_sec:.4f}s  err: {result.max_abs_err:.3e}")
+    for n in result.notes:
+        print(f"  note: {n}")
+    print(f"metrics: {out / 'metrics.json'}")
+    thr = result.metrics.get("throughput_batches_per_sec")
+    if thr is not None:
+        hthr = result.metrics.get("host_dgemm_batches_per_sec")
+        sp = result.metrics.get("speedup_vs_host_dgemm")
+        extra = f"  host_thr={hthr:.2f}  vs_host={sp:.2f}x" if hthr is not None else ""
+        othr = result.metrics.get("oneshot_batches_per_sec")
+        if othr is not None:
+            extra += f"  oneshot_thr={othr:.2f}  vs_oneshot={result.metrics.get('speedup_vs_oneshot', 0):.2f}x"
+        print(f"thr: {thr:.2f} batches/s{extra}")
+    sys.exit(0 if result.status == "pass" else 1)
