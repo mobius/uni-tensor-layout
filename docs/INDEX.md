@@ -20,6 +20,7 @@
 | [plan/20260714_220428_next_optimization_roadmap.md](plan/20260714_220428_next_optimization_roadmap.md) | N+1–N+3 (done) |
 | [plan/20260714_223206_phase2_system_roadmap.md](plan/20260714_223206_phase2_system_roadmap.md) | Phase 2 M1–M3 → v1.0 |
 | [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
+| [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | **Phase 3**（规划）决策/校准/job runner |
 
 ## Implementation notes (selected)
 
