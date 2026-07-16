@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 — 2026-07-15
+
+### Added (Phase 3 M1)
+
+- `recommend_backend` / `uct-recommend` — host vs VE pin/pool dispatch policy
+- `scripts/calibrate_cost_model.py` → `artifacts/calibration.json` (+ shipped default)
+- `scripts/bench_breakeven.py` → break-even table under `docs/impl/*_breakeven.md`
+- Auto-load calibration in `choose_best_placement` / recommend (`UCT_CALIBRATION`, `UCT_NO_CALIBRATION`)
+
 ## 1.1.0 — 2026-07-15
 
 ### Added

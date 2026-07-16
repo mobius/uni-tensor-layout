@@ -12,6 +12,11 @@ from uni_cute_tensor.partition.cost_model import (
     load_calibration,
     prediction_error_report,
     save_calibration,
+    try_autoload_calibration,
+)
+from uni_cute_tensor.partition.dispatch import (
+    DispatchRecommendation,
+    recommend_backend,
 )
 from uni_cute_tensor.partition.multi_device import (
     BACKEND_ATOMS,
@@ -43,8 +48,11 @@ __all__ = [
     "calibrate_from_samples",
     "save_calibration",
     "load_calibration",
+    "try_autoload_calibration",
     "get_device_model",
     "prediction_error_report",
+    "recommend_backend",
+    "DispatchRecommendation",
     "PlanRunResult",
     "execute_plan",
     "execute_auto",

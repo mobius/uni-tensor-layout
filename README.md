@@ -16,13 +16,13 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.1.0** — Phase 2 + **terminal examples E1–E5** complete. Public API still the v1.0 freeze.
+**v1.2.0** — Phase 3 **M1**: `recommend_backend` / `uct-recommend`, cost calibration, Host↔VE break-even.
 
-- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md)
+- API: [`docs/architecture/20260714_230700_api_v1.md`](docs/architecture/20260714_230700_api_v1.md) (+ `recommend_backend`)
 - Examples: [`examples/README.md`](examples/README.md)
-- Phase close: [`docs/impl/20260715_014700_phase_close_v1_1.md`](docs/impl/20260715_014700_phase_close_v1_1.md)
+- Dispatch: `uct-recommend -m 512 -n 512 -k 512 --batches 8`
+- Break-even: `python scripts/bench_breakeven.py` · calibrate: `python scripts/calibrate_cost_model.py`
 - Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- Glossary: [`docs/glossary.md`](docs/glossary.md)
 
 ### Performance baseline (this machine class)
 

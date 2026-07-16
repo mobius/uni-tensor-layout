@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
 import json
 import sys
+from pathlib import Path
 
 from uni_cute_tensor.bridge.uni_adapter import discover_devices, plan_to_task_specs, ve_device_names
 from uni_cute_tensor.hw import probe
@@ -53,3 +55,43 @@ def demo_partition_main() -> None:
         },
         indent=2,
     ))
+
+
+def recommend_main(argv: list[str] | None = None) -> None:
+    """Print dispatch recommendation for a GEMM-shaped job."""
+    from uni_cute_tensor.partition.dispatch import recommend_backend
+
+    p = argparse.ArgumentParser(prog="uct-recommend")
+    p.add_argument("-m", type=int, default=512)
+    p.add_argument("-n", type=int, default=512)
+    p.add_argument("-k", type=int, default=512)
+    p.add_argument("--batches", type=int, default=1)
+    p.add_argument("--mode", choices=("pin", "pool", "oneshot"), default="pin")
+    p.add_argument("--phi", action="store_true")
+    p.add_argument("--json", action="store_true")
+    args = p.parse_args(argv)
+
+    devices = discover_devices()
+    ve = ve_device_names(devices)
+    phi = any(d.kind == "phi" and d.online for d in devices)
+    rec = recommend_backend(
+        args.m,
+        args.n,
+        args.k,
+        batches=args.batches,
+        ve_devices=ve,
+        phi_available=args.phi or phi,
+        prefer_mode=args.mode,
+    )
+    if args.json:
+        print(json.dumps(rec.to_dict(), indent=2))
+    else:
+        print("=== uct-recommend ===")
+        print(f"problem: {args.m}x{args.k} @ {args.k}x{args.n}  batches={args.batches}")
+        print(f"recommended: **{rec.recommended}**  confidence={rec.confidence}")
+        print(f"reason: {rec.reason}")
+        print(f"calibration_loaded: {rec.calibration_loaded}  ve={rec.ve_available}")
+        print("--- estimates ---")
+        for e in rec.estimates:
+            print(f"  {e.backend:<12} wall={e.est_wall_sec:.4f}s  {'; '.join(e.notes[:2])}")
+    sys.exit(0)

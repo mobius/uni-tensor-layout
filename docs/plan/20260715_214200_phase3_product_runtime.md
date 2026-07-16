@@ -6,7 +6,7 @@
 > - `docs/plan/20260714_223206_phase2_system_roadmap.md`（**完成**）  
 > - `docs/plan/20260714_232700_terminal_examples_roadmap.md`（**完成**）  
 > - 收尾: `docs/impl/20260715_014700_phase_close_v1_1.md`  
-> 状态: **规划中（未实施）**  
+> 状态: **M1 已完成（v1.2.0）**；M2/M3 待实施  
 > 建议目标版本: **v1.2 → v1.3**（保持 1.x API 兼容）
 
 ---
@@ -92,14 +92,15 @@
 
 ## 3. 里程碑
 
-### M1 — 决策层（→ 约 v1.2.0）
+### M1 — 决策层（→ 约 v1.2.0） — **DONE**
 
-1. W1.1–W1.3 break-even + recommend_backend  
-2. W1.2 校准脚本 + 默认模型更新  
-3. E5 / bench 接入校准参数  
-4. 文档：何时用 Host / VE  
+1. ~~W1.1–W1.3 break-even + recommend_backend~~  
+2. ~~W1.2 校准脚本 + 默认模型更新~~  
+3. ~~choose_best / recommend 自动加载 calibration~~  
+4. ~~文档：break-even + 何时 Host / VE~~  
 
-**出口**: 用户跑一个命令能看到「推荐后端 + 依据」；至少一张 break-even 表。
+**出口**: `uct-recommend`；`docs/impl/*_breakeven.md`。  
+**实现**: `docs/impl/20260715_215000_phase3_m1_dispatch.md`
 
 ### M2 — 常驻作业入口（→ 约 v1.2.x / 1.3.0）
 

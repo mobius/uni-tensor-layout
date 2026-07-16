@@ -5,7 +5,7 @@ Public API (v1.0 stable) — see ``docs/architecture/*_api_v1.md``.
 
 from __future__ import annotations
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 from uni_cute_tensor.atoms import (
     HOST_AVX512_8x8x8_F64,
@@ -16,6 +16,7 @@ from uni_cute_tensor.atoms import (
 from uni_cute_tensor.backends.host_dgemm import host_dgemm
 from uni_cute_tensor.backends.host_ref import host_dgemm_reference, host_sharded_dgemm
 from uni_cute_tensor.partition.cost_model import choose_best_placement, estimate_gemm_placement
+from uni_cute_tensor.partition.dispatch import DispatchRecommendation, recommend_backend
 from uni_cute_tensor.partition.multi_device import (
     PlacementPlan,
     Shard,
@@ -47,6 +48,8 @@ __all__ = [
     "estimate_gemm_placement",
     "execute_plan",
     "execute_auto",
+    "recommend_backend",
+    "DispatchRecommendation",
     # host gemm
     "host_dgemm",
     "host_dgemm_reference",

@@ -1,0 +1,99 @@
+{
+  "fitted": {
+    "host": {
+      "peak_gflops": 439.88154614462576,
+      "pcie_gbps": 100.0,
+      "launch_overhead_sec": 0.002
+    },
+    "ve": {
+      "peak_gflops": 1561.851786846019,
+      "pcie_gbps": 8.0,
+      "launch_overhead_sec": 0.013204649090766907
+    }
+  },
+  "mean_rel_error": 2.4779124035780633,
+  "max_rel_error": 15.10762267991667,
+  "n_eval": 8,
+  "samples": [
+    {
+      "device_kind": "host",
+      "m": 256,
+      "n": 256,
+      "k": 256,
+      "wall_sec": 0.0024020515847951174,
+      "kernel_gflops": 193.3038710028555,
+      "transfer_bytes": 0,
+      "note": "host_auto"
+    },
+    {
+      "device_kind": "host",
+      "m": 512,
+      "n": 512,
+      "k": 512,
+      "wall_sec": 0.010516004636883736,
+      "kernel_gflops": 260.5772653134818,
+      "transfer_bytes": 0,
+      "note": "host_auto"
+    },
+    {
+      "device_kind": "host",
+      "m": 768,
+      "n": 768,
+      "k": 768,
+      "wall_sec": 0.004066385445185006,
+      "kernel_gflops": 325.0729934096768,
+      "transfer_bytes": 0,
+      "note": "host_auto"
+    },
+    {
+      "device_kind": "host",
+      "m": 1024,
+      "n": 1024,
+      "k": 1024,
+      "wall_sec": 0.005700456560589373,
+      "kernel_gflops": 439.88154614462576,
+      "transfer_bytes": 0,
+      "note": "host_auto"
+    },
+    {
+      "device_kind": "ve",
+      "m": 256,
+      "n": 256,
+      "k": 256,
+      "wall_sec": 0.0009955661371350288,
+      "kernel_gflops": 645.5848089693945,
+      "transfer_bytes": 1572864,
+      "note": "aveo_pin"
+    },
+    {
+      "device_kind": "ve",
+      "m": 512,
+      "n": 512,
+      "k": 512,
+      "wall_sec": 0.003941211150959134,
+      "kernel_gflops": 1141.886315256211,
+      "transfer_bytes": 6291456,
+      "note": "aveo_pin"
+    },
+    {
+      "device_kind": "ve",
+      "m": 768,
+      "n": 768,
+      "k": 768,
+      "wall_sec": 0.014608684927225113,
+      "kernel_gflops": 1466.0155037013333,
+      "transfer_bytes": 14155776,
+      "note": "aveo_pin"
+    },
+    {
+      "device_kind": "ve",
+      "m": 1024,
+      "n": 1024,
+      "k": 1024,
+      "wall_sec": 0.02366756391711533,
+      "kernel_gflops": 1561.851786846019,
+      "transfer_bytes": 25165824,
+      "note": "aveo_pin"
+    }
+  ]
+}

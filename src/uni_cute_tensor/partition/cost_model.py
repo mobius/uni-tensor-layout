@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import itertools
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Sequence, Union
@@ -50,6 +51,8 @@ DEFAULT_MODELS: dict[str, DeviceModel] = {
 
 # Per-device override table used after calibration
 _CALIBRATION: dict[str, DeviceModel] = {}
+_AUTOLOAD_TRIED: bool = False
+_AUTOLOAD_OK: bool = False
 
 
 @dataclass
@@ -83,8 +86,53 @@ class CalibrationReport:
 
 
 def set_calibration(models: dict[str, DeviceModel]) -> None:
+    global _AUTOLOAD_OK
     _CALIBRATION.clear()
     _CALIBRATION.update(models)
+    _AUTOLOAD_OK = bool(models)
+
+
+def calibration_active() -> bool:
+    return bool(_CALIBRATION)
+
+
+def try_autoload_calibration(
+    path: Optional[Union[str, Path]] = None,
+    *,
+    force: bool = False,
+) -> bool:
+    """Load calibration JSON once (unless force). Returns True if loaded."""
+    global _AUTOLOAD_TRIED, _AUTOLOAD_OK
+    if os.environ.get("UCT_NO_CALIBRATION", "").strip() in ("1", "true", "yes"):
+        return False
+    if _AUTOLOAD_TRIED and not force and _CALIBRATION:
+        return _AUTOLOAD_OK
+    if _AUTOLOAD_TRIED and not force and not _CALIBRATION:
+        return False
+    _AUTOLOAD_TRIED = True
+    candidates: list[Path] = []
+    if path is not None:
+        candidates.append(Path(path))
+    env = os.environ.get("UCT_CALIBRATION")
+    if env:
+        candidates.append(Path(env))
+    root = Path(__file__).resolve().parents[3]
+    candidates.append(root / "artifacts" / "calibration.json")
+    candidates.append(Path.cwd() / "artifacts" / "calibration.json")
+    # shipped default (this machine class; override via UCT_CALIBRATION)
+    candidates.append(
+        Path(__file__).resolve().parents[1] / "config" / "calibration_default.json"
+    )
+    for p in candidates:
+        if p.is_file():
+            try:
+                load_calibration(p)
+                _AUTOLOAD_OK = True
+                return True
+            except Exception:
+                continue
+    _AUTOLOAD_OK = False
+    return False
 
 
 def get_device_model(kind_or_name: str) -> DeviceModel:
@@ -103,10 +151,10 @@ def get_device_model(kind_or_name: str) -> DeviceModel:
 def calibrate_from_samples(
     samples: Sequence[CalibrationSample],
 ) -> CalibrationReport:
-    """Fit peak_gflops (and optional pcie) from measured walls.
+    """Fit peak_gflops / launch_overhead (and optional pcie) from measured walls.
 
-    Simple estimator: peak ≈ mean(kernel_gflops) when provided;
-    launch_overhead from residual of small problems if available.
+    - peak: median of kernel_gflops when provided, else from flops/wall for large jobs
+    - launch: residual wall - compute for small jobs (positive part)
     """
     by_kind: dict[str, list[CalibrationSample]] = {}
     for s in samples:
@@ -115,15 +163,51 @@ def calibrate_from_samples(
     fitted: dict[str, dict[str, float]] = {}
     models: dict[str, DeviceModel] = {}
     for kind, ss in by_kind.items():
-        peaks = [s.kernel_gflops for s in ss if s.kernel_gflops > 0]
-        peak = sum(peaks) / len(peaks) if peaks else DEFAULT_MODELS.get(kind, DEFAULT_MODELS["ve"]).peak_gflops
-        # crude pcie: if transfer_bytes and wall given for transfer-heavy jobs
-        pcie = DEFAULT_MODELS.get(kind, DEFAULT_MODELS["ve"]).pcie_gbps
-        launch = DEFAULT_MODELS.get(kind, DEFAULT_MODELS["ve"]).launch_overhead_sec
-        # small N residual as launch
-        small = [s for s in ss if s.m * s.n * s.k < 256**3 and s.wall_sec > 0]
-        if small:
-            launch = min(s.wall_sec for s in small) * 0.5
+        base = DEFAULT_MODELS.get(kind, DEFAULT_MODELS["ve"])
+        peaks = sorted(s.kernel_gflops for s in ss if s.kernel_gflops > 0)
+        if peaks:
+            # prefer high quantile (sustained large-N rate), not median of small tiles
+            peak = peaks[max(0, (3 * len(peaks)) // 4)]
+        else:
+            # derive from large jobs: peak ≈ flops / wall
+            derived = []
+            for s in ss:
+                if s.wall_sec > 0 and s.m * s.n * s.k >= 512**3:
+                    flops = 2.0 * s.m * s.n * s.k
+                    derived.append(flops / s.wall_sec / 1e9)
+            peak = (
+                sorted(derived)[len(derived) // 2]
+                if derived
+                else base.peak_gflops
+            )
+        pcie = base.pcie_gbps
+        # launch residual on smaller problems
+        residuals = []
+        for s in ss:
+            if s.wall_sec <= 0:
+                continue
+            flops = 2.0 * s.m * s.n * s.k
+            compute = flops / (peak * 1e9) if peak > 0 else 0.0
+            # rough xfer for non-host
+            xfer = 0.0
+            if kind != "host" and s.transfer_bytes > 0:
+                xfer = estimate_h2d_seconds(s.transfer_bytes, pcie)
+            elif kind != "host":
+                nbytes = 8 * (s.m * s.k + s.k * s.n + s.m * s.n)
+                xfer = estimate_h2d_seconds(nbytes, pcie)
+            resid = s.wall_sec - compute - (0.0 if kind == "host" else 0.5 * xfer)
+            if resid > 0:
+                residuals.append(resid)
+        if residuals:
+            residuals.sort()
+            launch = residuals[len(residuals) // 2]
+            # clamp
+            launch = float(min(max(launch, 0.0), 0.5 if kind != "host" else 0.05))
+        else:
+            launch = base.launch_overhead_sec
+        if kind == "host":
+            launch = min(launch, 0.002)
+            pcie = 100.0
         model = DeviceModel(
             name=kind,
             kind=kind,
@@ -140,20 +224,23 @@ def calibrate_from_samples(
 
     set_calibration(models)
 
-    # evaluate relative error on compute-dominated estimate
     errs: list[float] = []
     for s in samples:
-        pred = estimate_gemm_placement(
-            s.m,
-            s.n,
-            s.k,
-            [f"{s.device_kind}0"],
-            strategy="row_blocks",
-            peak_override=get_device_model(s.device_kind).peak_gflops,
-        )
-        if s.wall_sec > 0 and pred.est_total_sec > 0:
-            rel = abs(pred.est_total_sec - s.wall_sec) / s.wall_sec
-            errs.append(rel)
+        if s.device_kind == "host":
+            md = get_device_model("host")
+            flops = 2.0 * s.m * s.n * s.k
+            pred_w = flops / (md.peak_gflops * 1e9) + md.launch_overhead_sec
+        else:
+            pred = estimate_gemm_placement(
+                s.m,
+                s.n,
+                s.k,
+                [f"{s.device_kind}1" if s.device_kind == "ve" else f"{s.device_kind}0"],
+                strategy="row_blocks",
+            )
+            pred_w = pred.est_total_sec
+        if s.wall_sec > 0 and pred_w > 0:
+            errs.append(abs(pred_w - s.wall_sec) / s.wall_sec)
 
     report = CalibrationReport(
         samples=list(samples),
@@ -343,8 +430,11 @@ def choose_best_placement(
     max_devices: Optional[int] = None,
     min_devices: int = 1,
     attach: bool = True,
+    autoload_calibration: bool = True,
 ) -> PlacementChoice:
     """Pick strategy + device subset minimizing estimated total time under PowerCap."""
+    if autoload_calibration:
+        try_autoload_calibration()
     devices = list(devices)
     if not devices:
         raise ValueError("devices must be non-empty")

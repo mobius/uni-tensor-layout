@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.1.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.2.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -20,7 +20,7 @@
 | [plan/20260714_220428_next_optimization_roadmap.md](plan/20260714_220428_next_optimization_roadmap.md) | N+1–N+3 (done) |
 | [plan/20260714_223206_phase2_system_roadmap.md](plan/20260714_223206_phase2_system_roadmap.md) | Phase 2 M1–M3 → v1.0 |
 | [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
-| [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | **Phase 3**（规划）决策/校准/job runner |
+| [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | **Phase 3**（M1 done / M2–M3 open） |
 
 ## Implementation notes (selected)
 
@@ -32,7 +32,9 @@
 | [impl/20260714_230800_m3_v1_freeze.md](impl/20260714_230800_m3_v1_freeze.md) | M3 v1.0 freeze |
 | [impl/20260714_233200_examples_e1_e2.md](impl/20260714_233200_examples_e1_e2.md) | Terminal examples X1 (E1–E2) |
 | [impl/20260715_010300_examples_e3_e5.md](impl/20260715_010300_examples_e3_e5.md) | Terminal examples X2 (E3–E5) |
-| [impl/20260715_014700_phase_close_v1_1.md](impl/20260715_014700_phase_close_v1_1.md) | **Phase close → v1.1.0** |
+| [impl/20260715_014700_phase_close_v1_1.md](impl/20260715_014700_phase_close_v1_1.md) | Phase close → v1.1.0 |
+| [impl/20260715_215000_phase3_m1_dispatch.md](impl/20260715_215000_phase3_m1_dispatch.md) | Phase 3 M1 dispatch/calibration |
+| [impl/20260715_214911_breakeven.md](impl/20260715_214911_breakeven.md) | Host vs VE break-even sample |
 
 ## Research
 
