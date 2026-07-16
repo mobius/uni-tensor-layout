@@ -1,0 +1,16 @@
+{
+  "name": "phi_prep_ve_gemm",
+  "type": "phi_prep_ve_gemm",
+  "m": 256,
+  "n": 256,
+  "k": 256,
+  "batches": 8,
+  "alpha": 1.05,
+  "beta": 0.0,
+  "phi": true,
+  "force_ve": true,
+  "compare_oneshot": false,
+  "devices": "auto",
+  "seed": 0,
+  "description": "On-demand Phi scale (fallback Host) then multi-batch VE pin GEMM"
+}

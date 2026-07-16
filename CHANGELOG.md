@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0 — 2026-07-16
+
+### Added (service + paper S1–S3)
+
+- Unified job field `phi` (opt-in; Host fallback); prep metrics
+- Service templates: `service_dense_stream`, `service_sparse_dense`, `phi_prep_ve_gemm`
+- `scripts/submit_loop.py` continuous submit (local or `--socket`)
+- `scripts/paper_sweep.py` → `artifacts/paper/<exp_id>/` (thr tables, no power)
+- `docs/SERVICE.md` daily ops guide
+
 ## 1.5.0 — 2026-07-15
 
 ### Added (Phase 4 M2)

@@ -1,0 +1,13 @@
+{
+  "name": "service_sparse_dense",
+  "type": "service_sparse_dense",
+  "nx": 48,
+  "ny": 48,
+  "nrhs": 64,
+  "n_out": 128,
+  "backend": "auto",
+  "phi": false,
+  "devices": "auto",
+  "seed": 0,
+  "description": "Daily service: stencil SpMV then dense transform"
+}

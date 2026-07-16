@@ -67,6 +67,47 @@ def _resolve_devices(spec: dict[str, Any], host_only: bool) -> list[str]:
     return [d for d in names if d in found] or list(found)
 
 
+def _want_phi(spec: dict[str, Any], host_only: bool) -> bool:
+    """Phi is opt-in via job field phi / use_phi; disabled under host_only."""
+    if host_only or spec.get("host_only"):
+        return False
+    return bool(spec.get("phi") or spec.get("use_phi"))
+
+
+def _prep_scale(
+    a: np.ndarray,
+    *,
+    use_phi: bool,
+    alpha: float = 1.0,
+    beta: float = 0.0,
+) -> tuple[np.ndarray, str, float]:
+    """Return (scaled, note, prep_sec). Phi on demand with Host fallback."""
+    t0 = time.perf_counter()
+    if not use_phi:
+        out = np.ascontiguousarray(alpha * a + beta, dtype=np.float64)
+        return out, "host_scale", time.perf_counter() - t0
+    try:
+        from pathlib import Path
+
+        from uni_cute_tensor.backends.phi_prep import run_phi_prep_scale
+
+        if not Path("/dev/mic0").exists():
+            out = np.ascontiguousarray(alpha * a + beta, dtype=np.float64)
+            return out, "host_scale(no_mic)", time.perf_counter() - t0
+        out, prep = run_phi_prep_scale(a, alpha=alpha, beta=beta)
+        if prep.status != "pass":
+            out = np.ascontiguousarray(alpha * a + beta, dtype=np.float64)
+            return out, f"host_scale(phi_fail:{prep.status})", time.perf_counter() - t0
+        return (
+            out,
+            f"phi_scale gflops={prep.gflops:.2f}",
+            time.perf_counter() - t0,
+        )
+    except Exception as exc:
+        out = np.ascontiguousarray(alpha * a + beta, dtype=np.float64)
+        return out, f"host_scale(phi_skip:{exc})", time.perf_counter() - t0
+
+
 def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
     from uni_cute_tensor.partition.dispatch import recommend_backend
     from uni_cute_tensor.runtime.session import dgemm_shared_aveo, get_aveo_pool, shutdown_sessions
@@ -79,10 +120,14 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
     batches = int(spec.get("batches", 8))
     seed = int(spec.get("seed", 0))
     backend = str(spec.get("backend", "auto"))
+    alpha = float(spec.get("alpha", 1.0))
+    beta = float(spec.get("beta", 0.0))
     devices = _resolve_devices(spec, host_only)
+    use_phi = _want_phi(spec, host_only)
     rng = np.random.default_rng(seed)
-    a = rng.standard_normal((m, k))
+    a_raw = rng.standard_normal((m, k))
     bs = [rng.standard_normal((k, n)) for _ in range(batches)]
+    a, prep_note, prep_sec = _prep_scale(a_raw, use_phi=use_phi, alpha=alpha, beta=beta)
 
     rec = recommend_backend(
         m, n, k, batches=batches, ve_devices=devices[:1] if devices else [], prefer_mode="pin"
@@ -93,12 +138,15 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
         or not devices
         or (backend == "auto" and rec.recommended == "host" and not spec.get("force_ve"))
     )
-    # force_ve for host-not-win demos
     if spec.get("force_ve") and devices:
         use_host = False
 
-    notes = [f"recommend={rec.recommended} conf={rec.confidence}"]
+    notes = [
+        f"recommend={rec.recommended} conf={rec.confidence}",
+        f"prep={prep_note}",
+    ]
     max_err = 0.0
+    oneshot_wall = None
     # fair host baseline (warm OpenBLAS path), timed separately
     host_dgemm(a, bs[0], backend="auto")
     t_h0 = time.perf_counter()
@@ -108,6 +156,8 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
 
     t0 = time.perf_counter()
     with timeline_scope(job_id=spec.get("name", "dense_batch")) as tl:
+        with tl.span("prep_scale", "host" if "host" in prep_note else "kernel", device="phi0" if use_phi else "host"):
+            pass  # prep already done; span records 0 — time in prep_sec metric
         if use_host:
             for b in bs:
                 with tl.span("host_gemm", "kernel", device="host"):
@@ -117,8 +167,6 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
             notes.append("path=host_dgemm")
         else:
             node = int(devices[0].replace("ve", ""))
-            # optional cold oneshot baseline (few jobs) — shows residency value
-            oneshot_wall = None
             if spec.get("compare_oneshot", True):
                 from uni_cute_tensor.backends.ve_dgemm import run_ve_dgemm_shard
 
@@ -130,7 +178,7 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
 
             get_aveo_pool([node], pin_m=m, pin_n=n, pin_k=k)
             dgemm_shared_aveo(a[:32, :32], bs[0][:32, :32], ve_node=node, pin=True)
-            t0 = time.perf_counter()  # steady-state after session warm
+            t0 = time.perf_counter()
             for b in bs:
                 with tl.span("aveo_pin", "kernel", device=f"ve{node}"):
                     c, r = dgemm_shared_aveo(a, b, ve_node=node, pin=True)
@@ -146,6 +194,9 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
         "n": n,
         "k": k,
         "batches": batches,
+        "phi": use_phi,
+        "prep_sec": prep_sec,
+        "prep_note": prep_note,
         "throughput_batches_per_sec": thr,
         "host_dgemm_wall_sec": host_wall,
         "host_dgemm_batches_per_sec": host_thr,
@@ -162,7 +213,6 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
             f"vs_oneshot={metrics['speedup_vs_oneshot']:.2f}x "
             f"(resident pin thr={thr:.1f} vs oneshot~{metrics['oneshot_batches_per_sec']:.1f} b/s)"
         )
-    # keep session warm unless asked to close
     if spec.get("shutdown_session"):
         shutdown_sessions()
     return JobResult(
@@ -189,7 +239,10 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
     nrhs = int(spec.get("nrhs", 64))
     n_out = int(spec.get("n_out", 128))
     seed = int(spec.get("seed", 0))
+    alpha = float(spec.get("alpha", 1.0))
+    beta = float(spec.get("beta", 0.0))
     devices = _resolve_devices(spec, host_only)
+    use_phi = _want_phi(spec, host_only)
     rng = np.random.default_rng(seed)
     csr = stencil5_csr(nx, ny)
     x = rng.standard_normal((csr.ncols, nrhs))
@@ -197,9 +250,12 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
 
     t0 = time.perf_counter()
     max_err = 0.0
+    prep_note = "none"
+    prep_sec = 0.0
     with timeline_scope(job_id=spec.get("name", "sparse_dense")) as tl:
         with tl.span("spmv", "kernel", device="host"):
             y = csr_spmv(csr, x)
+        y, prep_note, prep_sec = _prep_scale(y, use_phi=use_phi, alpha=alpha, beta=beta)
         rec = recommend_backend(
             y.shape[0], n_out, y.shape[1], batches=1, ve_devices=devices[:1] if devices else []
         )
@@ -230,9 +286,12 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
             "nnz": csr.nnz,
             "nrhs": nrhs,
             "n_out": n_out,
+            "phi": use_phi,
+            "prep_sec": prep_sec,
+            "prep_note": prep_note,
             "timeline_phases": tl.summary(),
         },
-        notes=[f"stencil5 {nx}x{ny}", rec.reason[:100]],
+        notes=[f"stencil5 {nx}x{ny}", f"prep={prep_note}", rec.reason[:100]],
     )
 
 
@@ -251,12 +310,17 @@ def _run_dataprep(spec: dict[str, Any], host_only: bool) -> JobResult:
     k = int(spec.get("k", 384))
     n_out = int(spec.get("n_out", 96))
     seed = int(spec.get("seed", 0))
+    alpha = float(spec.get("alpha", 1.0))
+    beta = float(spec.get("beta", 0.0))
     devices = _resolve_devices(spec, host_only)
+    use_phi = _want_phi(spec, host_only)
     rng = np.random.default_rng(seed)
     dirty = make_dirty_matrix(m, k, rng=rng)
     W = random_projection_matrix(k, n_out, rng=rng)
 
     t0 = time.perf_counter()
+    prep_note = "none"
+    prep_sec = 0.0
     with timeline_scope(job_id=spec.get("name", "dataprep")) as tl:
         with tl.span("clean", "host", device="host"):
             cleaned, st = clean_features(dirty)
@@ -264,6 +328,7 @@ def _run_dataprep(spec: dict[str, Any], host_only: bool) -> JobResult:
         std = cleaned.std(axis=0)
         std = np.where(std < 1e-12, 1.0, std)
         xn = (cleaned - mean) / std
+        xn, prep_note, prep_sec = _prep_scale(xn, use_phi=use_phi, alpha=alpha, beta=beta)
         rec = recommend_backend(
             m, n_out, k, batches=1, ve_devices=devices[:1] if devices else []
         )
@@ -294,10 +359,29 @@ def _run_dataprep(spec: dict[str, Any], host_only: bool) -> JobResult:
             "n_out": n_out,
             "nan_filled": st.nan_count,
             "clipped": st.clipped_count,
+            "phi": use_phi,
+            "prep_sec": prep_sec,
+            "prep_note": prep_note,
             "timeline_phases": tl.summary(),
         },
-        notes=[rec.reason[:100]],
+        notes=[f"prep={prep_note}", rec.reason[:100]],
     )
+
+
+def _run_phi_prep_ve_gemm(spec: dict[str, Any], host_only: bool) -> JobResult:
+    """Explicit hetero story: scale (Phi-on-demand) then multi-batch VE/Host GEMM."""
+    # Reuse dense_batch with force phi semantics
+    s = dict(spec)
+    s.setdefault("type", "dense_batch")
+    s["phi"] = bool(spec.get("phi", True))  # default on for this job type
+    if host_only:
+        s["phi"] = False
+    result = _run_dense_batch(s, host_only)
+    result.job_type = "phi_prep_ve_gemm"
+    result.notes = [f"hetero_story phi_requested={spec.get('phi', True)}"] + list(
+        result.notes
+    )
+    return result
 
 
 def run_job(
@@ -310,12 +394,14 @@ def run_job(
     if not isinstance(job, dict):
         job = load_job(job)
     jtype = str(job.get("type") or job.get("job_type") or "dense_batch")
-    if jtype in ("dense_batch", "dense"):
+    if jtype in ("dense_batch", "dense", "service_dense_stream"):
         result = _run_dense_batch(job, host_only)
-    elif jtype in ("sparse_dense", "spmv_dense", "sparse"):
+    elif jtype in ("sparse_dense", "spmv_dense", "sparse", "service_sparse_dense"):
         result = _run_sparse_dense(job, host_only)
     elif jtype in ("dataprep", "dataprep_project"):
         result = _run_dataprep(job, host_only)
+    elif jtype in ("phi_prep_ve_gemm", "hetero_prep_gemm"):
+        result = _run_phi_prep_ve_gemm(job, host_only)
     else:
         raise ValueError(f"unknown job type: {jtype}")
 
@@ -323,7 +409,6 @@ def run_job(
         out = Path(out_dir)
         out.mkdir(parents=True, exist_ok=True)
         result.write_json(out / "metrics.json")
-        # timeline not auto-written; phases in metrics
     return result
 
 

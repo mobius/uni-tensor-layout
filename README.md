@@ -16,13 +16,14 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.5.0** — Phase 4 **M2**: **`uct-serve`** (Unix socket) + `uct-run --socket` for multi-job session reuse.
+**v1.6.0** — Daily **service** + **paper sweep** (S1–S3): `uct-serve`, submit_loop, paper_sweep, optional Phi.
 
-- Jobs: `uct-run --list` · `uct-run jobs/dense_batch.json`
-- Serve: `uct-serve --host-only` then `uct-run --socket jobs/dense_batch.json`
-- Dispatch: `uct-recommend -m 512 -n 512 -k 512 --batches 8`
-- Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- **No GitHub CI** (no device on runners); use `bash scripts/ci_l0.sh` locally
+- Service guide: [`docs/SERVICE.md`](docs/SERVICE.md)
+- Serve: `uct-serve` · submit: `python scripts/submit_loop.py --job jobs/service_dense_stream.json --n 20 --socket`
+- Paper: `python scripts/paper_sweep.py --quick` → `artifacts/paper/<id>/`
+- Phi: job `"phi": true` (default off; Host fallback)
+- Docs: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- **No GitHub CI**; local: `bash scripts/ci_l0.sh`
 
 ### Performance baseline (this machine class)
 

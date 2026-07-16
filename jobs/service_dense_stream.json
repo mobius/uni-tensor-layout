@@ -1,0 +1,15 @@
+{
+  "name": "service_dense_stream",
+  "type": "service_dense_stream",
+  "m": 256,
+  "n": 256,
+  "k": 256,
+  "batches": 16,
+  "backend": "auto",
+  "force_ve": true,
+  "compare_oneshot": true,
+  "phi": false,
+  "devices": "auto",
+  "seed": 0,
+  "description": "Daily service: multi-batch dense projection stream (prefer shared AVEO pin)"
+}

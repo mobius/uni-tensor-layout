@@ -5,7 +5,7 @@ Public API (v1.0 stable) — see ``docs/architecture/*_api_v1.md``.
 
 from __future__ import annotations
 
-__version__ = "1.5.0"
+__version__ = "1.6.0"
 
 from uni_cute_tensor.atoms import (
     HOST_AVX512_8x8x8_F64,
