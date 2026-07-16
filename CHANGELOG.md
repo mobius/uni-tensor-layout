@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 — 2026-07-15
+
+### Added (Phase 4 M2)
+
+- **`uct-serve`**: Unix-socket job daemon, shared AVEO/pool sessions across jobs
+- **`uct-run --socket`**: client submit / `--ping` / `--health` / `--shutdown`
+- Line JSON protocol (`runtime/serve_protocol.py`); socket mode `0600`
+- `session_health()` for serve health checks
+
 ## 1.4.0 — 2026-07-15
 
 ### Added (Phase 3 M3)

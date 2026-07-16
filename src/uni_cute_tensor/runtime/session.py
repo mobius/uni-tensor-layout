@@ -126,6 +126,39 @@ def has_worker_pool() -> bool:
         return _worker is not None
 
 
+def session_health() -> dict:
+    """Lightweight health snapshot for uct-serve."""
+    with _lock:
+        info: dict = {
+            "aveo": False,
+            "aveo_nodes": [],
+            "aveo_pin": None,
+            "worker": False,
+            "worker_ids": [],
+            "ok": True,
+            "detail": "",
+        }
+        if _aveo is not None:
+            info["aveo"] = True
+            info["aveo_nodes"] = list(_aveo.nodes)
+            info["aveo_pin"] = {
+                "m": _aveo.pin_m,
+                "n": _aveo.pin_n,
+                "k": _aveo.pin_k,
+            }
+            # pool object presence
+            if _aveo.pool is None:
+                info["ok"] = False
+                info["detail"] = "aveo pool missing"
+        if _worker is not None:
+            info["worker"] = True
+            info["worker_ids"] = list(_worker.ve_ids)
+            if _worker.pool is None:
+                info["ok"] = False
+                info["detail"] = "worker pool missing"
+        return info
+
+
 def shutdown_sessions() -> None:
     """Stop all shared sessions (safe to call multiple times)."""
     global _aveo, _worker, _closed

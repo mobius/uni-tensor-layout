@@ -5,7 +5,7 @@
 > 前序:  
 > - Phase 2 → v1.0/v1.1  
 > - Phase 3 → v1.2–v1.4（`docs/plan/20260715_214200_phase3_product_runtime.md`）  
-> 状态: **规划中（未实施）**  
+> 状态: **M2 已完成（v1.5.0 uct-serve）**；M1/M3 部分待实施  
 > 建议版本: **v1.5 → v1.6**（保持 1.x 公共 API 兼容）
 
 ---
@@ -98,13 +98,14 @@
 
 **出口**: 本机一条命令做 L0+device smoke；recommend 有 band 与更新 break-even。
 
-### M2 — 常驻 serve（可选但推荐）（→ ~v1.5.x / 1.6）
+### M2 — 常驻 serve（→ v1.5.0） — **DONE**
 
-1. W2.1–W2.2 Unix socket / JSONL worker  
-2. W2.3 模板  
-3. W4.2–W4.3 功耗与 timeline 挂到输出  
+1. ~~W2.1–W2.2 Unix socket serve + health/ping/shutdown~~  
+2. ~~W2.3 复用现有 jobs 模板~~  
+3. W4.2–W4.3 功耗挂 serve metrics — 部分（health 含 session；功耗可选后续）  
 
-**出口**: `uct-serve` + 多 client `uct-run --socket …`（或等价）；vs_oneshot 仍显著。
+**出口**: `uct-serve` + `uct-run --socket`。  
+**实现**: `docs/impl/20260715_230500_phase4_m2_uct_serve.md`
 
 ### M3 — uni 编排与外部数据（→ ~v1.6）
 

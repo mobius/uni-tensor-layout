@@ -16,13 +16,13 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.4.0** — Phase 3 **complete** (M1–M3): dispatch, `uct-run`, AVEO/Phi limits, multi-source power.
+**v1.5.0** — Phase 4 **M2**: **`uct-serve`** (Unix socket) + `uct-run --socket` for multi-job session reuse.
 
 - Jobs: `uct-run --list` · `uct-run jobs/dense_batch.json`
+- Serve: `uct-serve --host-only` then `uct-run --socket jobs/dense_batch.json`
 - Dispatch: `uct-recommend -m 512 -n 512 -k 512 --batches 8`
-- Power: RAPL (+ optional ipmitool / `UCT_VE_POWER_SENSORS`)
-- AVEO limits: `docs/architecture/20260715_221500_aveo_async_limits.md`
 - Docs map: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
+- **No GitHub CI** (no device on runners); use `bash scripts/ci_l0.sh` locally
 
 ### Performance baseline (this machine class)
 
@@ -135,9 +135,8 @@ Device backends: import from `uni_cute_tensor.backends.*` / `apps.*` (stable con
 src/uni_cute_tensor/
   atoms/ partition/ apps/ bridge/ backends/ runtime/
 docs/                 # INDEX + research|plan|impl|architecture
-scripts/ci_l0.sh      # local L0
+scripts/ci_l0.sh      # local L0 (device tests optional: pytest -m device)
 scripts/bench_*.py
-.github/workflows/ci.yml
 ```
 
 ## Security

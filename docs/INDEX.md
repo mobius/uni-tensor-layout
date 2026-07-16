@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.4.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.5.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -21,7 +21,8 @@
 | [plan/20260714_223206_phase2_system_roadmap.md](plan/20260714_223206_phase2_system_roadmap.md) | Phase 2 M1–M3 → v1.0 |
 | [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
 | [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | Phase 3 complete (v1.4) |
-| [plan/20260715_225600_phase4_hardening_and_use.md](plan/20260715_225600_phase4_hardening_and_use.md) | **Phase 4**（规划）硬化 / serve / 本机 CI |
+| [plan/20260715_225600_phase4_hardening_and_use.md](plan/20260715_225600_phase4_hardening_and_use.md) | Phase 4（M2 uct-serve done） |
+| [impl/20260715_230500_phase4_m2_uct_serve.md](impl/20260715_230500_phase4_m2_uct_serve.md) | uct-serve workflow |
 
 ## Implementation notes (selected)
 

@@ -7,10 +7,12 @@ from uni_cute_tensor.runtime.dataplane import (
     create_dataplane,
 )
 from uni_cute_tensor.runtime.job_runner import JobResult, load_job, run_job
+from uni_cute_tensor.runtime.serve_protocol import DEFAULT_SOCKET_PATH, client_call
 from uni_cute_tensor.runtime.session import (
     dgemm_shared_aveo,
     get_aveo_pool,
     get_worker_pool,
+    session_health,
     session_scope,
     shutdown_sessions,
 )
@@ -38,4 +40,7 @@ __all__ = [
     "run_job",
     "load_job",
     "JobResult",
+    "client_call",
+    "DEFAULT_SOCKET_PATH",
+    "session_health",
 ]

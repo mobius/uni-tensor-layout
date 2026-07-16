@@ -97,9 +97,32 @@ def recommend_main(argv: list[str] | None = None) -> None:
     sys.exit(0)
 
 
+def _resolve_job_path(job: str) -> Path:
+    job_path = Path(job)
+    if job_path.is_file():
+        return job_path
+    candidates = [
+        Path.cwd() / job,
+        Path(__file__).resolve().parents[2] / "jobs" / job,
+        Path(__file__).resolve().parents[2] / "jobs" / f"{job}.json",
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    raise FileNotFoundError(job)
+
+
 def run_main(argv: list[str] | None = None) -> None:
-    """Run a job JSON/YAML file (Phase 3 M2)."""
-    from uni_cute_tensor.runtime.job_runner import list_bundled_jobs, run_job
+    """Run a job JSON/YAML file, or submit to uct-serve via --socket."""
+    from uni_cute_tensor.runtime.job_runner import list_bundled_jobs, load_job, run_job
+    from uni_cute_tensor.runtime.serve_protocol import (
+        DEFAULT_SOCKET_PATH,
+        client_call,
+        request_health,
+        request_ping,
+        request_run,
+        request_shutdown,
+    )
     from uni_cute_tensor.runtime.session import shutdown_sessions
 
     p = argparse.ArgumentParser(prog="uct-run")
@@ -116,8 +139,32 @@ def run_main(argv: list[str] | None = None) -> None:
         default=None,
         help="Write metrics.json here (default artifacts/jobs/<name>)",
     )
-    p.add_argument("--shutdown", action="store_true", help="Stop shared sessions after run")
+    p.add_argument(
+        "--shutdown",
+        action="store_true",
+        help="Stop local sessions after run (or send shutdown to serve if --socket)",
+    )
+    p.add_argument(
+        "--socket",
+        nargs="?",
+        const=DEFAULT_SOCKET_PATH,
+        default=None,
+        help=f"Submit to uct-serve Unix socket (default {DEFAULT_SOCKET_PATH})",
+    )
+    p.add_argument("--ping", action="store_true", help="Ping uct-serve (needs --socket)")
+    p.add_argument("--health", action="store_true", help="Health check uct-serve")
     args = p.parse_args(argv)
+
+    # socket control ops without job
+    if args.socket and (args.ping or args.health or (args.shutdown and not args.job)):
+        if args.ping:
+            resp = client_call(args.socket, request_ping())
+        elif args.health:
+            resp = client_call(args.socket, request_health())
+        else:
+            resp = client_call(args.socket, request_shutdown())
+        print(json.dumps(resp, indent=2))
+        sys.exit(0 if resp.get("ok", False) else 1)
 
     if args.list or not args.job:
         jobs = list_bundled_jobs()
@@ -130,28 +177,49 @@ def run_main(argv: list[str] | None = None) -> None:
         if not args.job:
             if args.list:
                 sys.exit(0)
-            p.error("job path required (or --list)")
+            p.error("job path required (or --list / --ping / --health)")
         sys.exit(0)
 
-    job_path = Path(args.job)
-    if not job_path.is_file():
-        # try repo jobs/ and CWD
-        candidates = [
-            Path.cwd() / args.job,
-            Path(__file__).resolve().parents[2] / "jobs" / args.job,
-            Path(__file__).resolve().parents[2] / "jobs" / f"{args.job}.json",
-        ]
-        for c in candidates:
-            if c.is_file():
-                job_path = c
-                break
-        else:
-            print(f"job not found: {args.job}", file=sys.stderr)
-            sys.exit(2)
+    try:
+        job_path = _resolve_job_path(args.job)
+    except FileNotFoundError:
+        print(f"job not found: {args.job}", file=sys.stderr)
+        sys.exit(2)
 
     out = args.out_dir
     if out is None:
         out = Path("artifacts") / "jobs" / job_path.stem
+
+    # remote via serve
+    if args.socket:
+        job = load_job(job_path)
+        resp = client_call(
+            args.socket,
+            request_run(job, id=job_path.stem, host_only=args.host_only),
+        )
+        if args.shutdown:
+            try:
+                client_call(args.socket, request_shutdown())
+            except Exception:
+                pass
+        print("=== uct-run (via serve) ===")
+        print(f"socket: {args.socket}")
+        print(f"job: {job_path}")
+        if not resp.get("ok"):
+            print(f"error: {resp.get('error')}")
+            sys.exit(1)
+        result = resp.get("result") or {}
+        print(f"type: {result.get('job_type')}  status: {result.get('status')}")
+        print(f"backend: {result.get('backend')}  recommended: {result.get('recommended')}")
+        print(f"wall: {result.get('wall_sec')}  err: {result.get('max_abs_err')}")
+        out.mkdir(parents=True, exist_ok=True)
+        (out / "metrics.json").write_text(
+            json.dumps(result, indent=2) + "\n", encoding="utf-8"
+        )
+        print(f"metrics: {out / 'metrics.json'}")
+        sys.exit(0 if result.get("status") == "pass" else 1)
+
+    # local run
     try:
         result = run_job(job_path, host_only=args.host_only, out_dir=out)
     finally:
@@ -176,3 +244,33 @@ def run_main(argv: list[str] | None = None) -> None:
             extra += f"  oneshot_thr={othr:.2f}  vs_oneshot={result.metrics.get('speedup_vs_oneshot', 0):.2f}x"
         print(f"thr: {thr:.2f} batches/s{extra}")
     sys.exit(0 if result.status == "pass" else 1)
+
+
+def serve_main(argv: list[str] | None = None) -> None:
+    """Start uct-serve Unix socket daemon (Phase 4 M2)."""
+    from uni_cute_tensor.runtime.serve import run_server
+    from uni_cute_tensor.runtime.serve_protocol import DEFAULT_SOCKET_PATH
+
+    p = argparse.ArgumentParser(
+        prog="uct-serve",
+        description="Local Unix-socket job daemon (shared VE sessions). Not for public networks.",
+    )
+    p.add_argument(
+        "--socket",
+        default=DEFAULT_SOCKET_PATH,
+        help=f"Unix socket path (default {DEFAULT_SOCKET_PATH})",
+    )
+    p.add_argument("--host-only", action="store_true")
+    p.add_argument(
+        "--preload",
+        default=None,
+        help="Pre-open AVEO pin: N or M,N,K (e.g. 512 or 256,256,256)",
+    )
+    p.add_argument("--ve-node", type=int, default=1, help="VE node for preload pin")
+    args = p.parse_args(argv)
+    run_server(
+        args.socket,
+        host_only=args.host_only,
+        preload=args.preload,
+        ve_node=args.ve_node,
+    )
