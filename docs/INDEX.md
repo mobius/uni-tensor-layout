@@ -22,6 +22,7 @@
 | [plan/20260714_232700_terminal_examples_roadmap.md](plan/20260714_232700_terminal_examples_roadmap.md) | Terminal examples E1–E5 (done) |
 | [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | Phase 3 complete (v1.4) |
 | [plan/20260715_225600_phase4_hardening_and_use.md](plan/20260715_225600_phase4_hardening_and_use.md) | Phase 4（M2 uct-serve done） |
+| [plan/20260716_011100_use_case_service_and_paper.md](plan/20260716_011100_use_case_service_and_paper.md) | **用途：日常服务 + 论文实验** |
 | [impl/20260715_230500_phase4_m2_uct_serve.md](impl/20260715_230500_phase4_m2_uct_serve.md) | uct-serve workflow |
 
 ## Implementation notes (selected)
