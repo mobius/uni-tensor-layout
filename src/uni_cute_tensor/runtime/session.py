@@ -53,18 +53,31 @@ def get_aveo_pool(
     pin_m: int = 0,
     pin_n: int = 0,
     pin_k: int = 0,
+    pin_mode: str = "grow",
 ):
-    """Return shared AveoSessionPool; grow pin capacity if needed."""
+    """Return shared AveoSessionPool; grow or reject pin capacity.
+
+    pin_mode:
+      - grow (default): re-pin to max(current, requested)
+      - strict: raise if request exceeds existing pin (service preload guard)
+    """
     global _aveo
     _ensure_env()
     nodes_t = tuple(sorted(int(n) for n in nodes))
     if not nodes_t:
         raise ValueError("nodes must be non-empty")
+    mode = (pin_mode or "grow").lower()
     with _lock:
         if _aveo is not None and _aveo.nodes == nodes_t:
             if pin_m > 0 and (
                 pin_m > _aveo.pin_m or pin_n > _aveo.pin_n or pin_k > _aveo.pin_k
             ):
+                if mode == "strict" and _aveo.pin_m > 0:
+                    raise RuntimeError(
+                        f"pin capacity exceeded: need ({pin_m},{pin_n},{pin_k}) "
+                        f"have ({_aveo.pin_m},{_aveo.pin_n},{_aveo.pin_k}); "
+                        f"restart uct-serve with larger --preload"
+                    )
                 pm = max(pin_m, _aveo.pin_m)
                 pn = max(pin_n, _aveo.pin_n)
                 pk = max(pin_k, _aveo.pin_k)
@@ -211,6 +224,7 @@ def dgemm_shared_aveo(
     *,
     ve_node: int = 1,
     pin: bool = True,
+    pin_mode: str = "grow",
 ):
     """GEMM via shared AVEO session (optionally pinned)."""
     import numpy as np
@@ -220,9 +234,11 @@ def dgemm_shared_aveo(
     m, k = a.shape
     n = b.shape[1]
     if pin:
-        pool = get_aveo_pool([ve_node], pin_m=m, pin_n=n, pin_k=k)
+        pool = get_aveo_pool(
+            [ve_node], pin_m=m, pin_n=n, pin_k=k, pin_mode=pin_mode
+        )
         return pool.dgemm_pinned(ve_node, a, b)
-    pool = get_aveo_pool([ve_node])
+    pool = get_aveo_pool([ve_node], pin_mode=pin_mode)
     return pool.dgemm(ve_node, a, b)
 
 

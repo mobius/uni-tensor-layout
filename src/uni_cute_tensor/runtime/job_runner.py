@@ -67,6 +67,40 @@ def _resolve_devices(spec: dict[str, Any], host_only: bool) -> list[str]:
     return [d for d in names if d in found] or list(found)
 
 
+def load_array(path: Union[str, Path]) -> np.ndarray:
+    """Load float64 2-D array from .npy or .npz (first array / key 'arr'/'a')."""
+    path = Path(path)
+    if not path.is_file():
+        raise FileNotFoundError(path)
+    if path.suffix == ".npy":
+        a = np.load(str(path))
+    elif path.suffix == ".npz":
+        z = np.load(str(path))
+        key = "arr" if "arr" in z else ("a" if "a" in z else z.files[0])
+        a = z[key]
+    else:
+        # raw row-major float64 needs shape in sidecar — require npy/npz
+        raise ValueError(f"unsupported array format: {path.suffix} (use .npy/.npz)")
+    a = np.ascontiguousarray(a, dtype=np.float64)
+    if a.ndim != 2:
+        raise ValueError(f"expected 2-D array, got shape {a.shape}")
+    return a
+
+
+def load_csr_npz(path: Union[str, Path]):
+    """Load CSR from npz: indptr, indices, data, optional nrows/ncols."""
+    from uni_cute_tensor.apps.spmv_dataprep import CSRMatrix
+
+    path = Path(path)
+    z = np.load(str(path))
+    indptr = np.asarray(z["indptr"], dtype=np.int32)
+    indices = np.asarray(z["indices"], dtype=np.int32)
+    data = np.asarray(z["data"], dtype=np.float64)
+    nrows = int(z["nrows"]) if "nrows" in z else int(indptr.shape[0] - 1)
+    ncols = int(z["ncols"]) if "ncols" in z else (int(indices.max()) + 1 if indices.size else 0)
+    return CSRMatrix(nrows=nrows, ncols=ncols, indptr=indptr, indices=indices, data=data)
+
+
 def _want_phi(spec: dict[str, Any], host_only: bool) -> bool:
     """Phi is opt-in via job field phi / use_phi; disabled under host_only."""
     if host_only or spec.get("host_only"):
@@ -124,9 +158,21 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
     beta = float(spec.get("beta", 0.0))
     devices = _resolve_devices(spec, host_only)
     use_phi = _want_phi(spec, host_only)
+    pin_mode = str(spec.get("pin_mode", "grow"))
     rng = np.random.default_rng(seed)
-    a_raw = rng.standard_normal((m, k))
-    bs = [rng.standard_normal((k, n)) for _ in range(batches)]
+    if spec.get("matrix_a"):
+        a_raw = load_array(spec["matrix_a"])
+        m, k = a_raw.shape
+    else:
+        a_raw = rng.standard_normal((m, k))
+    if spec.get("matrix_b"):
+        b0 = load_array(spec["matrix_b"])
+        if b0.shape[0] != k:
+            raise ValueError(f"matrix_b inner dim {b0.shape[0]} != k={k}")
+        n = b0.shape[1]
+        bs = [b0 for _ in range(batches)]
+    else:
+        bs = [rng.standard_normal((k, n)) for _ in range(batches)]
     a, prep_note, prep_sec = _prep_scale(a_raw, use_phi=use_phi, alpha=alpha, beta=beta)
 
     rec = recommend_backend(
@@ -170,21 +216,27 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
             if spec.get("compare_oneshot", True):
                 from uni_cute_tensor.backends.ve_dgemm import run_ve_dgemm_shard
 
+                # ve_exec and AVEO cannot share a VE node; free any shared session first
+                shutdown_sessions()
                 n_cold = min(3, batches)
                 t_c = time.perf_counter()
                 for b in bs[:n_cold]:
                     run_ve_dgemm_shard(a, b, ve_id=node)
                 oneshot_wall = (time.perf_counter() - t_c) * (batches / n_cold)
 
-            get_aveo_pool([node], pin_m=m, pin_n=n, pin_k=k)
-            dgemm_shared_aveo(a[:32, :32], bs[0][:32, :32], ve_node=node, pin=True)
+            get_aveo_pool([node], pin_m=m, pin_n=n, pin_k=k, pin_mode=pin_mode)
+            dgemm_shared_aveo(
+                a[:32, :32], bs[0][:32, :32], ve_node=node, pin=True, pin_mode=pin_mode
+            )
             t0 = time.perf_counter()
             for b in bs:
                 with tl.span("aveo_pin", "kernel", device=f"ve{node}"):
-                    c, r = dgemm_shared_aveo(a, b, ve_node=node, pin=True)
+                    c, r = dgemm_shared_aveo(
+                        a, b, ve_node=node, pin=True, pin_mode=pin_mode
+                    )
                 max_err = max(max_err, r.max_abs_err, float(np.max(np.abs(c - a @ b))))
             be = "VE_AVEO_PIN_SHARED"
-            notes.append(f"path=shared_aveo_pin ve{node}")
+            notes.append(f"path=shared_aveo_pin ve{node} pin_mode={pin_mode}")
     wall = time.perf_counter() - t0
     thr = batches / wall if wall > 0 else 0.0
     host_thr = batches / host_wall if host_wall > 0 else 0.0
@@ -195,6 +247,9 @@ def _run_dense_batch(spec: dict[str, Any], host_only: bool) -> JobResult:
         "k": k,
         "batches": batches,
         "phi": use_phi,
+        "pin_mode": pin_mode,
+        "external_a": bool(spec.get("matrix_a")),
+        "external_b": bool(spec.get("matrix_b")),
         "prep_sec": prep_sec,
         "prep_note": prep_note,
         "throughput_batches_per_sec": thr,
@@ -243,10 +298,25 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
     beta = float(spec.get("beta", 0.0))
     devices = _resolve_devices(spec, host_only)
     use_phi = _want_phi(spec, host_only)
+    pin_mode = str(spec.get("pin_mode", "grow"))
     rng = np.random.default_rng(seed)
-    csr = stencil5_csr(nx, ny)
-    x = rng.standard_normal((csr.ncols, nrhs))
-    w = rng.standard_normal((nrhs, n_out))
+    if spec.get("csr_path"):
+        csr = load_csr_npz(spec["csr_path"])
+        nx = ny = -1
+    else:
+        csr = stencil5_csr(nx, ny)
+    if spec.get("matrix_x"):
+        x = load_array(spec["matrix_x"])
+        nrhs = x.shape[1] if x.ndim == 2 else 1
+        if x.ndim == 1:
+            x = x.reshape(-1, 1)
+    else:
+        x = rng.standard_normal((csr.ncols, nrhs))
+    if spec.get("matrix_w"):
+        w = load_array(spec["matrix_w"])
+        n_out = w.shape[1]
+    else:
+        w = rng.standard_normal((nrhs, n_out))
 
     t0 = time.perf_counter()
     max_err = 0.0
@@ -267,9 +337,17 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
             max_err = r.max_abs_err
         else:
             node = int(devices[0].replace("ve", ""))
-            get_aveo_pool([node], pin_m=y.shape[0], pin_n=n_out, pin_k=y.shape[1])
+            get_aveo_pool(
+                [node],
+                pin_m=y.shape[0],
+                pin_n=n_out,
+                pin_k=y.shape[1],
+                pin_mode=pin_mode,
+            )
             with tl.span("gemm", "kernel", device=f"ve{node}"):
-                c, r = dgemm_shared_aveo(y, w, ve_node=node, pin=True)
+                c, r = dgemm_shared_aveo(
+                    y, w, ve_node=node, pin=True, pin_mode=pin_mode
+                )
             be = "VE_AVEO_PIN_SHARED"
             max_err = max(r.max_abs_err, float(np.max(np.abs(c - y @ w))))
     wall = time.perf_counter() - t0
@@ -287,11 +365,16 @@ def _run_sparse_dense(spec: dict[str, Any], host_only: bool) -> JobResult:
             "nrhs": nrhs,
             "n_out": n_out,
             "phi": use_phi,
+            "csr_external": bool(spec.get("csr_path")),
             "prep_sec": prep_sec,
             "prep_note": prep_note,
             "timeline_phases": tl.summary(),
         },
-        notes=[f"stencil5 {nx}x{ny}", f"prep={prep_note}", rec.reason[:100]],
+        notes=[
+            f"csr={'external' if spec.get('csr_path') else f'stencil5 {nx}x{ny}'}",
+            f"prep={prep_note}",
+            rec.reason[:100],
+        ],
     )
 
 

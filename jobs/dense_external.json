@@ -1,0 +1,12 @@
+{
+  "name": "dense_external_sample",
+  "type": "dense_batch",
+  "matrix_a": "artifacts/sample_data/A.npy",
+  "matrix_b": "artifacts/sample_data/B.npy",
+  "batches": 4,
+  "backend": "host",
+  "compare_oneshot": false,
+  "phi": false,
+  "seed": 0,
+  "description": "External .npy GEMM; generate with: python scripts/make_sample_matrices.py"
+}

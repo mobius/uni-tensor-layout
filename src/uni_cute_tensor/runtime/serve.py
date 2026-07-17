@@ -101,18 +101,26 @@ class JobServer:
 
         host_only = bool(req.get("host_only", self.host_only))
         # serialize jobs so shared AVEO session is not used concurrently
+        t_wait0 = time.perf_counter()
         with self._lock:
+            queue_wait_sec = time.perf_counter() - t_wait0
             try:
                 result = run_job(job, host_only=host_only, out_dir=None)
                 self._jobs_done += 1
                 if result.status != "pass":
                     self._jobs_fail += 1
+                payload = result.to_dict()
+                # surface queue wait for service SLOs (not power)
+                metrics = dict(payload.get("metrics") or {})
+                metrics["queue_wait_sec"] = queue_wait_sec
+                payload["metrics"] = metrics
                 return {
                     "op": "result",
                     "id": rid,
                     "ok": result.status == "pass",
                     "status": result.status,
-                    "result": result.to_dict(),
+                    "queue_wait_sec": queue_wait_sec,
+                    "result": payload,
                 }
             except Exception as exc:
                 self._jobs_fail += 1
@@ -121,6 +129,7 @@ class JobServer:
                     "id": rid,
                     "ok": False,
                     "error": str(exc),
+                    "queue_wait_sec": queue_wait_sec,
                     "traceback": traceback.format_exc()[-2000:],
                 }
 

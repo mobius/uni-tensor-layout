@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.7.0 — 2026-07-17
+
+### Added (service hardening + paper baseline T1–T3)
+
+- **Service ops**: `scripts/service_start.sh` / `service_stop.sh` (preload, pidfile, log)
+- **queue_wait_sec** on uct-serve results (lock wait before job run)
+- **pin_mode**: `grow` (default re-pin) | `strict` (reject over preload)
+- **External matrices**: `matrix_a`/`matrix_b` (.npy/.npz), `csr_path` + `matrix_x`/`matrix_w`
+- `scripts/make_sample_matrices.py`, `jobs/dense_external.json`, `jobs/sparse_external.json`
+- **Paper**: full `paper_sweep` baseline path + `scripts/paper_plot.py`
+- **Local QA**: `scripts/ci_device.sh`, `scripts/ci_all.sh` (still no GitHub CI)
+- Docs: `docs/SERVICE.md` ops refresh; README when-to Host/VE/serve; impl paper baseline
+
 ## 1.6.0 — 2026-07-16
 
 ### Added (service + paper S1–S3)

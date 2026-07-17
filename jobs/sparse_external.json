@@ -1,0 +1,11 @@
+{
+  "name": "sparse_external_sample",
+  "type": "sparse_dense",
+  "csr_path": "artifacts/sample_data/csr_stencil8.npz",
+  "matrix_x": "artifacts/sample_data/X.npy",
+  "matrix_w": "artifacts/sample_data/W.npy",
+  "backend": "host",
+  "phi": false,
+  "seed": 0,
+  "description": "External CSR .npz + x/w; generate with: python scripts/make_sample_matrices.py"
+}

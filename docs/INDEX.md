@@ -1,6 +1,6 @@
 # Documentation index
 
-> Updated for **v1.6.0**. Process docs keep timestamps; this file is the entry map.
+> Updated for **v1.7.0**. Process docs keep timestamps; this file is the entry map.
 
 ## Start here
 
@@ -23,9 +23,11 @@
 | [plan/20260715_214200_phase3_product_runtime.md](plan/20260715_214200_phase3_product_runtime.md) | Phase 3 complete (v1.4) |
 | [plan/20260715_225600_phase4_hardening_and_use.md](plan/20260715_225600_phase4_hardening_and_use.md) | Phase 4（M2 uct-serve done） |
 | [plan/20260716_011100_use_case_service_and_paper.md](plan/20260716_011100_use_case_service_and_paper.md) | 用途：日常服务 + 论文（S1–S3 done） |
-| [plan/20260716_042600_next_service_paper_hardening.md](plan/20260716_042600_next_service_paper_hardening.md) | **下阶段** 服务硬化 + 论文闭环 |
+| [plan/20260716_042600_next_service_paper_hardening.md](plan/20260716_042600_next_service_paper_hardening.md) | T1–T3 服务硬化 + 论文闭环（**done → v1.7**） |
 | [SERVICE.md](SERVICE.md) | **Daily uct-serve ops** |
 | [impl/20260716_012000_service_paper_s1s2s3.md](impl/20260716_012000_service_paper_s1s2s3.md) | S1–S3 implementation |
+| [impl/20260717_021000_service_paper_t1t3.md](impl/20260717_021000_service_paper_t1t3.md) | T1–T3 implementation |
+| [impl/20260717_021000_paper_baseline_esc4000.md](impl/20260717_021000_paper_baseline_esc4000.md) | ESC4000 paper baseline |
 | [impl/20260715_230500_phase4_m2_uct_serve.md](impl/20260715_230500_phase4_m2_uct_serve.md) | uct-serve workflow |
 
 ## Implementation notes (selected)
@@ -63,10 +65,14 @@ for this hardware-bound repo). Run on the ESC4000 (or any host) instead:
 # L0 (no accelerator required)
 bash scripts/ci_l0.sh
 
-# Device (this machine class)
+# Device + full local (this machine class)
+bash scripts/ci_device.sh
+bash scripts/ci_all.sh   # or UCT_SKIP_DEVICE=1 bash scripts/ci_all.sh
+
 export PYTHONPATH=src
 export LD_LIBRARY_PATH=/opt/nec/ve/veos/lib64:$LD_LIBRARY_PATH
 export VE_LD_LIBRARY_PATH=/opt/nec/ve/nlc/3.1.0/lib:/opt/nec/ve/nfort/5.4.1/lib:/opt/nec/ve/lib
 pytest -q -m device
 python scripts/bench_summary.py
+python scripts/paper_sweep.py --quick --exp-id smoke
 ```

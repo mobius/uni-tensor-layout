@@ -16,14 +16,27 @@ Repository: https://github.com/mobius/uni-tensor-layout
 
 ## Status
 
-**v1.6.0** — Daily **service** + **paper sweep** (S1–S3): `uct-serve`, submit_loop, paper_sweep, optional Phi.
+**v1.7.0** — Service hardening + paper baseline (T1–T3): ops scripts, queue wait, pin policy, external matrices, full sweep path.
 
-- Service guide: [`docs/SERVICE.md`](docs/SERVICE.md)
+- Service: [`docs/SERVICE.md`](docs/SERVICE.md) · `bash scripts/service_start.sh` / `service_stop.sh`
 - Serve: `uct-serve` · submit: `python scripts/submit_loop.py --job jobs/service_dense_stream.json --n 20 --socket`
-- Paper: `python scripts/paper_sweep.py --quick` → `artifacts/paper/<id>/`
+- Paper: `python scripts/paper_sweep.py --exp-id esc4000_baseline` → `artifacts/paper/<id>/` · plot: `paper_plot.py`
+- External data: `python scripts/make_sample_matrices.py` · `jobs/dense_external.json` / `sparse_external.json`
 - Phi: job `"phi": true` (default off; Host fallback)
 - Docs: [`docs/INDEX.md`](docs/INDEX.md) · Changelog: [`CHANGELOG.md`](CHANGELOG.md)
-- **No GitHub CI**; local: `bash scripts/ci_l0.sh`
+- **No GitHub CI**; local: `bash scripts/ci_all.sh` (or `ci_l0.sh` / `ci_device.sh`)
+
+### When to use Host / VE / serve
+
+| Situation | Prefer | Why |
+|-----------|--------|-----|
+| Single mid-size GEMM, one-shot | **Host OpenBLAS** | Often wins latency; no VE cold-start tax |
+| Many batches, fixed A, shared session | **VE AVEO pin** (+ `uct-serve`) | Resident thr ≫ cold oneshot (often tens–hundreds×) |
+| Daily multi-user / multi-job stream | **`uct-serve` + pin preload** | Session reuse; metrics include `queue_wait_sec` |
+| Irregular prep then dense | **Host prep** (or `phi:true` opt-in) → pin GEMM | Phi only when available; Host fallback |
+| Paper table / thr–batches | `paper_sweep` + fixed `--seed` | Reproducible thr / err / vs_oneshot (no power KPIs) |
+
+Claim discipline: **do not** claim “VE always beats Host OpenBLAS”; claim **residency**, multi-batch thr, and auditable placement.
 
 ### Performance baseline (this machine class)
 
@@ -38,8 +51,9 @@ Repository: https://github.com/mobius/uni-tensor-layout
 | dp | `aveo_pinned` @512³ | wall **~0.008 s** |
 | app | SpMV→GEMM + uni TaskGraph | **pass** (err ~1e-12) |
 | e5 / uct-run ve_win | resident pin vs cold oneshot | ~**70×** thr (256³×32 batch sample) |
+| paper | full sweep `esc4000_baseline` | see `docs/impl/*_paper_baseline_esc4000.md` |
 
-Regenerate table: `python scripts/bench_summary.py` → `docs/impl/*_perf_gate.md`.
+Regenerate: `python scripts/bench_summary.py` · paper: `python scripts/paper_sweep.py --exp-id esc4000_baseline --seed 0`.
 
 Optional: set `INTEL_LICENSE_FILE=$HOME/parallel_studio.lic` for ICC/Phi (file is never committed).
 
@@ -58,8 +72,10 @@ uv pip install -e ".[dev]"
 bash scripts/check_hw.sh
 # or: uct-check-hw
 
-# L0 checks on this machine (no GitHub CI — runners have no Phi/VE)
+# L0 / full local checks (no GitHub CI — runners have no Phi/VE)
 bash scripts/ci_l0.sh
+# bash scripts/ci_all.sh          # L0 + device smoke
+# UCT_SKIP_DEVICE=1 bash scripts/ci_all.sh
 
 # terminal-facing examples (E1–E5) — see examples/README.md
 python examples/e1_batch_dense_regression.py
@@ -135,9 +151,12 @@ Device backends: import from `uni_cute_tensor.backends.*` / `apps.*` (stable con
 ```
 src/uni_cute_tensor/
   atoms/ partition/ apps/ bridge/ backends/ runtime/
-docs/                 # INDEX + research|plan|impl|architecture
-scripts/ci_l0.sh      # local L0 (device tests optional: pytest -m device)
+docs/                 # INDEX + research|plan|impl|architecture + SERVICE.md
+scripts/ci_l0.sh ci_device.sh ci_all.sh
+scripts/service_start.sh service_stop.sh
+scripts/paper_sweep.py paper_plot.py make_sample_matrices.py
 scripts/bench_*.py
+jobs/                 # dense/sparse/service/external templates
 ```
 
 ## Security

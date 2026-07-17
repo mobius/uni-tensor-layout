@@ -109,22 +109,26 @@ def main() -> int:
                                 "batches": nb,
                                 "force_ve": True,
                                 "phi": phi,
-                                "compare_oneshot": nb >= 4,
+                                # oneshot probe only for multi-batch mid size (expensive)
+                                "compare_oneshot": (nb >= 8 and n <= 512),
                                 "seed": args.seed,
                             }
                             host_only = False
-                        else:  # oneshot approximated: force_ve + compare only
+                        else:
+                            # oneshot: one cold probe per N (not per batches value)
+                            if nb != batches_list[0]:
+                                continue
                             job = {
                                 "type": "dense_batch",
                                 "m": n,
                                 "n": n,
                                 "k": n,
-                                "batches": max(nb, 3),
+                                "batches": 3,
                                 "force_ve": True,
                                 "phi": phi,
                                 "compare_oneshot": True,
                                 "seed": args.seed,
-                                "name": f"oneshot_probe_{n}_{nb}",
+                                "name": f"oneshot_probe_{n}",
                             }
                             host_only = False
 
@@ -137,6 +141,10 @@ def main() -> int:
                             status = "fail"
                             rec = {"error": str(exc), "status": "fail"}
                         wall = time.perf_counter() - t0
+                        met = rec.get("metrics") or {}
+                        thr = met.get("throughput_batches_per_sec")
+                        if be == "oneshot" and met.get("oneshot_batches_per_sec"):
+                            thr = met.get("oneshot_batches_per_sec")
                         row = {
                             "N": n,
                             "batches": nb,
@@ -144,24 +152,21 @@ def main() -> int:
                             "phi": phi,
                             "status": status,
                             "wall_sec": rec.get("wall_sec", wall),
-                            "thr": (rec.get("metrics") or {}).get(
-                                "throughput_batches_per_sec"
-                            ),
-                            "vs_host": (rec.get("metrics") or {}).get(
-                                "speedup_vs_host_dgemm"
-                            ),
-                            "vs_oneshot": (rec.get("metrics") or {}).get(
-                                "speedup_vs_oneshot"
-                            ),
-                            "prep_note": (rec.get("metrics") or {}).get("prep_note"),
+                            "thr": thr,
+                            "vs_host": met.get("speedup_vs_host_dgemm"),
+                            "vs_oneshot": met.get("speedup_vs_oneshot"),
+                            "prep_sec": met.get("prep_sec"),
+                            "prep_note": met.get("prep_note"),
                             "err": rec.get("max_abs_err"),
                             "path_backend": rec.get("backend"),
                         }
                         rows.append(row)
                         f.write(json.dumps(row) + "\n")
+                        f.flush()
                         print(
                             f"N={n} B={nb} be={be} phi={phi} status={status} "
-                            f"thr={row['thr']} vs_oneshot={row['vs_oneshot']}"
+                            f"thr={row['thr']} vs_oneshot={row['vs_oneshot']}",
+                            flush=True,
                         )
     shutdown_sessions()
 
